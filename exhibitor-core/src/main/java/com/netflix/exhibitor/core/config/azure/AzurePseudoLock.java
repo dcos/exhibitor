@@ -17,21 +17,7 @@ public class AzurePseudoLock extends PseudoLockBase
     /**
      * @param client the Azure client
      * @param container the Azure container
-     * @param lockPrefix uri prefix
-     * @param timeoutMs max age for locks
-     * @param pollingMs how often to poll Azure
-     */
-    public AzurePseudoLock(AzureClient client, String container, String lockPrefix, int timeoutMs, int pollingMs)
-    {
-        super(lockPrefix, timeoutMs, pollingMs);
-        this.client = client;
-        this.container = container;
-    }
-
-    /**
-     * @param client the Azure client
-     * @param container the Azure container
-     * @param lockPrefix uri prefix
+     * @param lockPrefix the Azure blob prefix
      * @param timeoutMs max age for locks
      * @param pollingMs how often to poll Azure
      * @param settlingMs how long to wait for Azure to reach consistency

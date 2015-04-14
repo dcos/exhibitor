@@ -143,7 +143,7 @@ public class ExhibitorCLI
         s3ConfigOptions.addOption(null, S3_CONFIG_PREFIX, true, "When using AWS S3 shared config files, the prefix to use for values such as locks. Default is " + DEFAULT_PREFIX);
 
         Options azureConfigOptions = new Options();
-        azureConfigOptions.addOption(null, AZURE_CONFIG, true, "The container name and uri to store the config (azurecredentials may be provided as well). Argument is [container name]:[uri].");
+        azureConfigOptions.addOption(null, AZURE_CONFIG, true, "The container name and blob name to store the config (azurecredentials may be provided as well). Argument is [container name]:[blob name].");
 
         Options zookeeperConfigOptions = new Options();
         zookeeperConfigOptions.addOption(null, ZOOKEEPER_CONFIG_INITIAL_CONNECT_STRING, true, "The initial connection string for ZooKeeper shared config storage. E.g: \"host1:2181,host2:2181...\"");

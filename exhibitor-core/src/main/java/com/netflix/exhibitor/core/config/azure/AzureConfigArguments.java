@@ -1,14 +1,14 @@
 package com.netflix.exhibitor.core.config.azure;
 
 public class AzureConfigArguments {
-    private final String        container;
-    private final String        uri;
+    private final String container;
+    private final String blobName;
     private final AzureConfigAutoManageLockArguments lockArguments;
 
-    public AzureConfigArguments(String container, String uri, AzureConfigAutoManageLockArguments lockArguments)
+    public AzureConfigArguments(String container, String blobName, AzureConfigAutoManageLockArguments lockArguments)
     {
         this.container = container;
-        this.uri = uri;
+        this.blobName = blobName;
         this.lockArguments = lockArguments;
     }
 
@@ -17,9 +17,9 @@ public class AzureConfigArguments {
         return container;
     }
 
-    public String getUri()
+    public String getBlobName()
     {
-        return uri;
+        return blobName;
     }
 
     public AzureConfigAutoManageLockArguments getLockArguments()
