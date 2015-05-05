@@ -25,14 +25,16 @@ import com.netflix.exhibitor.core.config.IntConfigs;
 import com.netflix.exhibitor.core.config.JQueryStyle;
 import com.netflix.exhibitor.core.config.PropertyBasedInstanceConfig;
 import com.netflix.exhibitor.core.config.StringConfigs;
-import com.netflix.exhibitor.core.s3.PropertyBasedS3Credential;
+import com.netflix.exhibitor.core.gcs.PropertyBasedGcsCredential;
 import com.netflix.exhibitor.core.s3.PropertyBasedS3ClientConfig;
+import com.netflix.exhibitor.core.s3.PropertyBasedS3Credential;
 import com.netflix.exhibitor.core.state.ManifestVersion;
 import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
 import java.io.PrintWriter;
 import java.util.Arrays;
 import java.util.List;
@@ -71,6 +73,9 @@ public class ExhibitorCLI
     public static final String S3_CONFIG = "s3config";
     public static final String S3_CONFIG_PREFIX = "s3configprefix";
     public static final String S3_REGION = "s3region";
+    public static final String GCS_CREDENTIALS = "gcscredentials";
+    public static final String GCS_CONFIG = "gcsconfig";
+    public static final String GCS_CONFIG_PREFIX = "gcsconfigprefix";
     public static final String ZOOKEEPER_CONFIG_INITIAL_CONNECT_STRING = "zkconfigconnect";
     public static final String ZOOKEEPER_CONFIG_EXHIBITOR_PORT = "zkconfigexhibitorport";
     public static final String ZOOKEEPER_CONFIG_EXHIBITOR_URI_PATH = "zkconfigexhibitorpath";
@@ -138,6 +143,10 @@ public class ExhibitorCLI
         s3ConfigOptions.addOption(null, S3_CONFIG, true, "The bucket name and key to store the config (s3credentials may be provided as well). Argument is [bucket name]:[key].");
         s3ConfigOptions.addOption(null, S3_CONFIG_PREFIX, true, "When using AWS S3 shared config files, the prefix to use for values such as locks. Default is " + DEFAULT_PREFIX);
 
+        Options gcsConfigOptions = new Options();
+        s3ConfigOptions.addOption(null, GCS_CONFIG, true, "The bucket name and key to store the config (gcscredentials may be provided as well). Argument is [bucket name]:[key].");
+        s3ConfigOptions.addOption(null, GCS_CONFIG_PREFIX, true, "When using Google Cloud Storage shared config files, the prefix to use for values such as locks. Default is " + DEFAULT_PREFIX);
+
         Options zookeeperConfigOptions = new Options();
         zookeeperConfigOptions.addOption(null, ZOOKEEPER_CONFIG_INITIAL_CONNECT_STRING, true, "The initial connection string for ZooKeeper shared config storage. E.g: \"host1:2181,host2:2181...\"");
         zookeeperConfigOptions.addOption(null, ZOOKEEPER_CONFIG_EXHIBITOR_PORT, true, "Used if the ZooKeeper shared config is also running Exhibitor. This is the port that Exhibitor is listening on. IMPORTANT: if this value is not set it implies that Exhibitor is not being used on the ZooKeeper shared config.");
@@ -158,6 +167,9 @@ public class ExhibitorCLI
         s3Options.addOption(null, S3_REGION, true, "Optional region for S3 calls (e.g. \"eu-west-1\"). Will be used to set the S3 client's endpoint.");
         s3Options.addOption(null, S3_PROXY, true, "Optional configuration used when when connecting to S3 via a proxy. Argument is the path to an AWS credential properties file with four properties (only host, port and protocol are required if using a proxy): " + PropertyBasedS3ClientConfig.PROPERTY_S3_PROXY_HOST + ", " + PropertyBasedS3ClientConfig.PROPERTY_S3_PROXY_PORT + ", " + PropertyBasedS3ClientConfig.PROPERTY_S3_PROXY_USERNAME + ", " + PropertyBasedS3ClientConfig.PROPERTY_S3_PROXY_PASSWORD);
 
+        Options gcsOptions = new Options();
+        gcsOptions.addOption(null, GCS_CREDENTIALS, true, "Optional credentials to use for gcsconfig. Argument is the path to an Google Cloud Storage credential properties file with three properties: " + PropertyBasedGcsCredential.PROPERTY_GCS_ACCOUNT_EMAIL + ", " + PropertyBasedGcsCredential.PROPERTY_GCS_ACCOUNT_ID + ", and " + PropertyBasedGcsCredential.PROPERTY_GCS_PRIVATE_KEY_PATH);
+
         generalOptions = new Options();
         generalOptions.addOption(null, TIMEOUT, true, "Connection timeout (ms) for ZK connections. Default is 30000.");
         generalOptions.addOption(null, LOGLINES, true, "Max lines of logging to keep in memory for display. Default is 1000.");
@@ -167,7 +179,7 @@ public class ExhibitorCLI
         generalOptions.addOption(null, NODE_MUTATIONS, true, "If true, the Explorer UI will allow nodes to be modified (use with caution). Default is true.");
         generalOptions.addOption(null, JQUERY_STYLE, true, "Styling used for the JQuery-based UI. Currently available options: " + getStyleOptions());
         generalOptions.addOption(ALT_HELP, HELP, false, "Print this help");
-        generalOptions.addOption(SHORT_CONFIG_TYPE, CONFIG_TYPE, true, "Defines which configuration type you want to use. Choices are: \"file\", \"s3\", \"zookeeper\" or \"none\". Additional config will be required depending on which type you are using.");
+        generalOptions.addOption(SHORT_CONFIG_TYPE, CONFIG_TYPE, true, "Defines which configuration type you want to use. Choices are: \"file\", \"s3\", \"gcs\", \"zookeeper\" or \"none\". Additional config will be required depending on which type you are using.");
         generalOptions.addOption(null, CONFIGCHECKMS, true, "Period (ms) to check for shared config updates. Default is: 30000");
         generalOptions.addOption(null, SERVO_INTEGRATION, true, "true/false (default is false). If enabled, ZooKeeper will be queried once a minute for its state via the 'mntr' four letter word (this requires ZooKeeper 3.4.x+). Servo will be used to publish this data via JMX.");
         generalOptions.addOption(null, INITIAL_CONFIG_FILE, true, "Full path to a file that contains initial/default values for Exhibitor/ZooKeeper config values. The file is a standard property file. The property names are listed below. The file can specify some or all of the properties.");
@@ -180,7 +192,9 @@ public class ExhibitorCLI
 
         options = new Options();
         addAll("S3 Options", s3Options);
+        addAll("Google Cloud Storage Options", gcsOptions);
         addAll("Configuration Options for Type \"s3\"", s3ConfigOptions);
+        addAll("Configuration Options for Type \"gcs\"", gcsConfigOptions);
         addAll("Configuration Options for Type \"zookeeper\"", zookeeperConfigOptions);
         addAll("Configuration Options for Type \"file\"", fileConfigOptions);
         addAll("Configuration Options for Type \"none\"", noneConfigOptions);

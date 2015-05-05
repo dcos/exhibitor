@@ -23,29 +23,24 @@ import com.netflix.exhibitor.core.ExhibitorArguments;
 import com.netflix.exhibitor.core.backup.BackupProvider;
 import com.netflix.exhibitor.core.backup.filesystem.FileSystemBackupProvider;
 import com.netflix.exhibitor.core.backup.s3.S3BackupProvider;
-import com.netflix.exhibitor.core.config.AutoManageLockArguments;
-import com.netflix.exhibitor.core.config.ConfigProvider;
-import com.netflix.exhibitor.core.config.DefaultProperties;
-import com.netflix.exhibitor.core.config.IntConfigs;
-import com.netflix.exhibitor.core.config.JQueryStyle;
-import com.netflix.exhibitor.core.config.PropertyBasedInstanceConfig;
-import com.netflix.exhibitor.core.config.StringConfigs;
+import com.netflix.exhibitor.core.config.*;
 import com.netflix.exhibitor.core.config.filesystem.FileSystemConfigProvider;
+import com.netflix.exhibitor.core.config.gcs.GcsConfigArguments;
+import com.netflix.exhibitor.core.config.gcs.GcsConfigAutoManageLockArguments;
+import com.netflix.exhibitor.core.config.gcs.GcsConfigProvider;
 import com.netflix.exhibitor.core.config.none.NoneConfigProvider;
 import com.netflix.exhibitor.core.config.s3.S3ConfigArguments;
 import com.netflix.exhibitor.core.config.s3.S3ConfigAutoManageLockArguments;
 import com.netflix.exhibitor.core.config.s3.S3ConfigProvider;
 import com.netflix.exhibitor.core.config.zookeeper.ZookeeperConfigProvider;
+import com.netflix.exhibitor.core.gcs.GcsClientFactoryImpl;
+import com.netflix.exhibitor.core.gcs.PropertyBasedGcsCredential;
 import com.netflix.exhibitor.core.s3.PropertyBasedS3ClientConfig;
 import com.netflix.exhibitor.core.s3.PropertyBasedS3Credential;
 import com.netflix.exhibitor.core.s3.S3ClientFactoryImpl;
 import com.netflix.exhibitor.core.servo.ServoRegistration;
 import com.netflix.servo.jmx.JmxMonitorRegistry;
-import org.apache.commons.cli.CommandLine;
-import org.apache.commons.cli.CommandLineParser;
-import org.apache.commons.cli.ParseException;
-import org.apache.commons.cli.PosixParser;
-import org.apache.commons.cli.UnrecognizedOptionException;
+import org.apache.commons.cli.*;
 import org.apache.curator.ensemble.exhibitor.DefaultExhibitorRestClient;
 import org.apache.curator.ensemble.exhibitor.ExhibitorEnsembleProvider;
 import org.apache.curator.ensemble.exhibitor.Exhibitors;
@@ -58,20 +53,11 @@ import org.apache.zookeeper.ZooDefs;
 import org.apache.zookeeper.common.PathUtils;
 import org.apache.zookeeper.data.ACL;
 import org.apache.zookeeper.data.Id;
-import org.mortbay.jetty.security.BasicAuthenticator;
-import org.mortbay.jetty.security.Constraint;
-import org.mortbay.jetty.security.ConstraintMapping;
-import org.mortbay.jetty.security.Credential;
-import org.mortbay.jetty.security.HashUserRealm;
-import org.mortbay.jetty.security.SecurityHandler;
+import org.mortbay.jetty.security.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import java.io.BufferedInputStream;
-import java.io.Closeable;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.io.InputStream;
+
+import java.io.*;
 import java.util.Collections;
 import java.util.List;
 import java.util.Properties;
@@ -121,9 +107,13 @@ public class ExhibitorCreator
         String                        s3Region = commandLine.getOptionValue(S3_REGION, null);
         PropertyBasedS3Credential     awsCredentials = null;
         PropertyBasedS3ClientConfig   awsClientConfig = null;
+        PropertyBasedGcsCredential    gcsCredentials = null;
         if ( commandLine.hasOption(S3_CREDENTIALS) )
         {
             awsCredentials = new PropertyBasedS3Credential(new File(commandLine.getOptionValue(S3_CREDENTIALS)));
+        } else if ( commandLine.hasOption(GCS_CREDENTIALS) )
+        {
+            gcsCredentials = new PropertyBasedGcsCredential(new File(commandLine.getOptionValue(GCS_CREDENTIALS)));
         }
 
         if ( commandLine.hasOption(S3_PROXY) )
@@ -155,7 +145,7 @@ public class ExhibitorCreator
             throw new MissingConfigurationTypeException("Configuration type (-" + SHORT_CONFIG_TYPE + " or --" + CONFIG_TYPE + ") must be specified", cli);
         }
 
-        ConfigProvider configProvider = makeConfigProvider(configType, cli, commandLine, awsCredentials, awsClientConfig, backupProvider, useHostname, s3Region);
+        ConfigProvider configProvider = makeConfigProvider(configType, cli, commandLine, awsCredentials, awsClientConfig, backupProvider, useHostname, s3Region, gcsCredentials);
         if ( configProvider == null )
         {
             throw new ExhibitorCreatorExit(cli);
@@ -278,7 +268,7 @@ public class ExhibitorCreator
         return remoteAuthSpec;
     }
 
-    private ConfigProvider makeConfigProvider(String configType, ExhibitorCLI cli, CommandLine commandLine, PropertyBasedS3Credential awsCredentials, PropertyBasedS3ClientConfig awsClientConfig, BackupProvider backupProvider, String useHostname, String s3Region) throws Exception
+    private ConfigProvider makeConfigProvider(String configType, ExhibitorCLI cli, CommandLine commandLine, PropertyBasedS3Credential awsCredentials, PropertyBasedS3ClientConfig awsClientConfig, BackupProvider backupProvider, String useHostname, String s3Region, PropertyBasedGcsCredential gcsCredentials) throws Exception
     {
         Properties          defaultProperties = makeDefaultProperties(commandLine, backupProvider);
 
@@ -286,6 +276,10 @@ public class ExhibitorCreator
         if ( configType.equals("s3") )
         {
             configProvider = getS3Provider(cli, commandLine, awsCredentials, awsClientConfig, useHostname, defaultProperties, s3Region);
+        }
+        else if ( configType.equals("gcs") )
+        {
+            configProvider = getGcsProvider(cli, commandLine, gcsCredentials, useHostname, defaultProperties);
         }
         else if ( configType.equals("file") )
         {
@@ -528,6 +522,13 @@ public class ExhibitorCreator
         return new S3ConfigProvider(new S3ClientFactoryImpl(), awsCredentials, awsClientConfig, getS3Arguments(cli, commandLine.getOptionValue(S3_CONFIG), prefix), hostname, defaultProperties, s3Region);
     }
 
+    private ConfigProvider getGcsProvider(ExhibitorCLI cli, CommandLine commandLine, PropertyBasedGcsCredential gcsCredentials, String hostname, Properties defaultProperties) throws Exception
+    {
+        String  prefix = commandLine.getOptionValue(GCS_CONFIG_PREFIX, DEFAULT_PREFIX);
+        return new GcsConfigProvider(new GcsClientFactoryImpl(), gcsCredentials, getGcsArguments(cli, commandLine.getOptionValue(GCS_CONFIG), prefix), hostname, defaultProperties);
+    }
+
+
     private void checkMutuallyExclusive(ExhibitorCLI cli, CommandLine commandLine, String option1, String option2) throws ExhibitorCreatorExit
     {
         if ( commandLine.hasOption(option1) && commandLine.hasOption(option2) )
@@ -546,6 +547,17 @@ public class ExhibitorCreator
             throw new ExhibitorCreatorExit(cli);
         }
         return new S3ConfigArguments(parts[0].trim(), parts[1].trim(), new S3ConfigAutoManageLockArguments(prefix + "-lock-"));
+    }
+
+    private GcsConfigArguments getGcsArguments(ExhibitorCLI cli, String value, String prefix) throws ExhibitorCreatorExit
+    {
+        String[]        parts = value.split(":");
+        if ( parts.length != 2 )
+        {
+            log.error("Bad gcsconfig argument: " + value);
+            throw new ExhibitorCreatorExit(cli);
+        }
+        return new GcsConfigArguments(parts[0].trim(), parts[1].trim(), new GcsConfigAutoManageLockArguments(prefix + "-lock-"));
     }
 
     private CuratorFramework makeCurator(final String connectString, int baseSleepTimeMs, int maxRetries, int exhibitorPort, String exhibitorRestPath, int pollingMs)
