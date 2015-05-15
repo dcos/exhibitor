@@ -9,6 +9,6 @@ public interface GcsClientFactory {
      * @return client
      * @throws Exception errors
      */
-    public GcsClient makeNewClient(GcsCredential credentials) throws Exception;
+    public GcsClient makeNewClient() throws Exception;
 
 }

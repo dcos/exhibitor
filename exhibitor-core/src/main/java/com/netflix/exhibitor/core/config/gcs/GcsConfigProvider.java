@@ -6,7 +6,6 @@ import com.google.api.services.storage.model.StorageObject;
 import com.netflix.exhibitor.core.config.*;
 import com.netflix.exhibitor.core.gcs.GcsClient;
 import com.netflix.exhibitor.core.gcs.GcsClientFactory;
-import com.netflix.exhibitor.core.gcs.GcsCredential;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -25,30 +24,28 @@ public class GcsConfigProvider implements ConfigProvider {
 
     /**
      * @param factory     the factory
-     * @param credentials credentials
      * @param arguments   args
      * @param hostname    this VM's hostname
      * @throws Exception errors
      */
-    public GcsConfigProvider(GcsClientFactory factory, GcsCredential credentials, GcsConfigArguments arguments,
+    public GcsConfigProvider(GcsClientFactory factory, GcsConfigArguments arguments,
                                String hostname) throws Exception {
-        this(factory, credentials, arguments, hostname, new Properties());
+        this(factory, arguments, hostname, new Properties());
     }
 
     /**
      * @param factory     the factory
-     * @param credentials credentials
      * @param arguments   args
      * @param hostname    this VM's hostname
      * @param defaults    default props
      * @throws Exception errors
      */
-    public GcsConfigProvider(GcsClientFactory factory, GcsCredential credentials, GcsConfigArguments arguments,
+    public GcsConfigProvider(GcsClientFactory factory, GcsConfigArguments arguments,
                                String hostname, Properties defaults) throws Exception {
         this.arguments = arguments;
         this.hostname = hostname;
         this.defaults = defaults;
-        gcsClient = factory.makeNewClient(credentials);
+        gcsClient = factory.makeNewClient();
     }
 
     public GcsClient getClient() {

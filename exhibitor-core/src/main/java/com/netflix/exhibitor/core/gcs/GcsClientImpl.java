@@ -3,6 +3,7 @@ package com.netflix.exhibitor.core.gcs;
 
 import com.google.api.client.auth.oauth2.Credential;
 import com.google.api.client.googleapis.auth.oauth2.GoogleCredential;
+import com.google.api.client.googleapis.compute.ComputeCredential;
 import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport;
 import com.google.api.client.http.ByteArrayContent;
 import com.google.api.client.http.HttpTransport;
@@ -11,43 +12,52 @@ import com.google.api.client.json.jackson2.JacksonFactory;
 import com.google.api.services.storage.Storage;
 import com.google.api.services.storage.StorageScopes;
 import com.google.api.services.storage.model.StorageObject;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.http.client.methods.CloseableHttpResponse;
+import org.apache.http.client.methods.HttpGet;
+import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.impl.client.HttpClients;
+import org.apache.http.util.EntityUtils;
+import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+
 import java.io.ByteArrayOutputStream;
-import java.io.File;
 import java.io.IOException;
 import java.math.BigInteger;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 
 public class GcsClientImpl implements GcsClient {
+    private static final String TOKEN_URI = "http://metadata/computeMetadata/v1/instance/service-accounts/default/token";
+
     private final Logger log = LoggerFactory.getLogger(getClass());
-    private final GcsCredential credentials;
+
     private static final String APPLICATION_NAME = "exhibitor";
 
     private static final JsonFactory JSON_FACTORY = JacksonFactory.getDefaultInstance();
 
-    public GcsClientImpl(GcsCredential credentials) {
-        this.credentials = credentials;
+    CloseableHttpClient httpclient = HttpClients.createDefault();
+
+    private String getAccessToken() throws IOException {
+        HttpGet tokenGetRequest = new HttpGet(TOKEN_URI);
+        tokenGetRequest.addHeader("Metadata-Flavor", "Google");
+        CloseableHttpResponse httpResponse = httpclient.execute(tokenGetRequest);
+
+        String content =  EntityUtils.toString(httpResponse.getEntity());
+        if (StringUtils.isEmpty(content)) {
+            throw new IOException("Failed to write entity content.");
+        }
+        JSONObject obj = new JSONObject(content);
+        String token = obj.getString("access_token");
+        return token;
     }
 
     private Credential authorize() throws Exception {
         JsonFactory JSON_FACTORY = JacksonFactory.getDefaultInstance();
         HttpTransport httpTransport = GoogleNetHttpTransport.newTrustedTransport();
-        Set<String> scopes = new HashSet<String>();
-        scopes.add(StorageScopes.DEVSTORAGE_FULL_CONTROL);
-        scopes.add(StorageScopes.DEVSTORAGE_READ_ONLY);
-        scopes.add(StorageScopes.DEVSTORAGE_READ_WRITE);
-        return new GoogleCredential.Builder()
-            .setTransport(httpTransport)
-            .setJsonFactory(JSON_FACTORY)
-            .setServiceAccountId(credentials.getAccountEmail())
-            .setServiceAccountPrivateKeyFromP12File(new File(credentials.getPrivateKeyPath()))
-            .setServiceAccountScopes(scopes)
-            .build();
+        return new ComputeCredential.Builder(httpTransport, JSON_FACTORY).build();
     }
 
     @Override

@@ -136,9 +136,6 @@ public class ExhibitorCreator
         if ( commandLine.hasOption(S3_CREDENTIALS) )
         {
             awsCredentials = new PropertyBasedS3Credential(new File(commandLine.getOptionValue(S3_CREDENTIALS)));
-        } else if ( commandLine.hasOption(GCS_CREDENTIALS) )
-        {
-            gcsCredentials = new PropertyBasedGcsCredential(new File(commandLine.getOptionValue(GCS_CREDENTIALS)));
         }
 
         if ( commandLine.hasOption(S3_PROXY) )
@@ -176,7 +173,7 @@ public class ExhibitorCreator
             throw new MissingConfigurationTypeException("Configuration type (-" + SHORT_CONFIG_TYPE + " or --" + CONFIG_TYPE + ") must be specified", cli);
         }
 
-        ConfigProvider configProvider = makeConfigProvider(configType, cli, commandLine, awsCredentials, awsClientConfig, backupProvider, useHostname, s3Region, azureCredentials, gcsCredentials);
+        ConfigProvider configProvider = makeConfigProvider(configType, cli, commandLine, awsCredentials, awsClientConfig, backupProvider, useHostname, s3Region, azureCredentials);
         if ( configProvider == null )
         {
             throw new ExhibitorCreatorExit(cli);
@@ -299,7 +296,7 @@ public class ExhibitorCreator
         return remoteAuthSpec;
     }
 
-    private ConfigProvider makeConfigProvider(String configType, ExhibitorCLI cli, CommandLine commandLine, PropertyBasedS3Credential awsCredentials, PropertyBasedS3ClientConfig awsClientConfig, BackupProvider backupProvider, String useHostname, String s3Region, PropertyBasedAzureCredential azureCredentials, PropertyBasedGcsCredential gcsCredentials) throws Exception
+    private ConfigProvider makeConfigProvider(String configType, ExhibitorCLI cli, CommandLine commandLine, PropertyBasedS3Credential awsCredentials, PropertyBasedS3ClientConfig awsClientConfig, BackupProvider backupProvider, String useHostname, String s3Region, PropertyBasedAzureCredential azureCredentials) throws Exception
     {
         Properties          defaultProperties = makeDefaultProperties(commandLine, backupProvider);
 
@@ -310,7 +307,7 @@ public class ExhibitorCreator
         }
         else if ( configType.equals("gcs") )
         {
-            configProvider = getGcsProvider(cli, commandLine, gcsCredentials, useHostname, defaultProperties);
+            configProvider = getGcsProvider(cli, commandLine, useHostname, defaultProperties);
         }
         else if ( configType.equals("file") )
         {
@@ -563,10 +560,10 @@ public class ExhibitorCreator
         return new AzureConfigProvider(new AzureClientFactoryImpl(), azureCredentials, getAzureArguments(cli, commandLine.getOptionValue(AZURE_CONFIG), prefix), hostname, defaultProperties);
     }
 
-    private ConfigProvider getGcsProvider(ExhibitorCLI cli, CommandLine commandLine, PropertyBasedGcsCredential gcsCredentials, String hostname, Properties defaultProperties) throws Exception
+    private ConfigProvider getGcsProvider(ExhibitorCLI cli, CommandLine commandLine, String hostname, Properties defaultProperties) throws Exception
     {
         String  prefix = commandLine.getOptionValue(GCS_CONFIG_PREFIX, DEFAULT_PREFIX);
-        return new GcsConfigProvider(new GcsClientFactoryImpl(), gcsCredentials, getGcsArguments(cli, commandLine.getOptionValue(GCS_CONFIG), prefix), hostname, defaultProperties);
+        return new GcsConfigProvider(new GcsClientFactoryImpl(), getGcsArguments(cli, commandLine.getOptionValue(GCS_CONFIG), prefix), hostname, defaultProperties);
     }
 
 
