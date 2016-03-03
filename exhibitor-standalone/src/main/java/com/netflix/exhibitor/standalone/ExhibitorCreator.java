@@ -43,6 +43,7 @@ import com.netflix.exhibitor.core.config.none.NoneConfigProvider;
 import com.netflix.exhibitor.core.config.s3.S3ConfigArguments;
 import com.netflix.exhibitor.core.config.s3.S3ConfigAutoManageLockArguments;
 import com.netflix.exhibitor.core.config.s3.S3ConfigProvider;
+import com.netflix.exhibitor.core.config.stat.StaticConfigProvider;
 import com.netflix.exhibitor.core.config.zookeeper.ZookeeperConfigProvider;
 import com.netflix.exhibitor.core.gcs.GcsClientFactoryImpl;
 import com.netflix.exhibitor.core.gcs.PropertyBasedGcsCredential;
@@ -321,6 +322,10 @@ public class ExhibitorCreator
         {
             configProvider = getAzureProvider(cli, commandLine, azureCredentials, useHostname, defaultProperties);
         }
+        else if ( configType.equals("static") )
+        {
+            configProvider = getStaticProvider(cli, commandLine, defaultProperties);
+        }
         else if ( configType.equals("none") )
         {
             log.warn("Warning: you have intentionally turned off shared configuration. This mode is meant for special purposes only. Please verify that this is your intent.");
@@ -566,6 +571,11 @@ public class ExhibitorCreator
         return new GcsConfigProvider(new GcsClientFactoryImpl(), getGcsArguments(cli, commandLine.getOptionValue(GCS_CONFIG), prefix), hostname, defaultProperties);
     }
 
+    private ConfigProvider getStaticProvider(ExhibitorCLI cli, CommandLine commandLine, Properties defaultProperties) throws Exception
+    {
+        String ensemble = commandLine.getOptionValue(STATIC_ENSEMBLE, "");
+        return new StaticConfigProvider(ensemble, defaultProperties);
+    }
 
     private void checkMutuallyExclusive(ExhibitorCLI cli, CommandLine commandLine, String option1, String option2) throws ExhibitorCreatorExit
     {

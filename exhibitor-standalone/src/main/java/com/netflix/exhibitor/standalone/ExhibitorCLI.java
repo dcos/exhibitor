@@ -88,6 +88,7 @@ public class ExhibitorCLI
     public static final String ZOOKEEPER_CONFIG_POLLING = "zkconfigpollms";
     public static final String NONE_CONFIG_DIRECTORY = "noneconfigdir";
     public static final String INITIAL_CONFIG_FILE = "defaultconfig";
+    public static final String STATIC_ENSEMBLE = "staticensemble";
 
     public static final String FILESYSTEMBACKUP = "filesystembackup";
     public static final String TIMEOUT = "timeout";
@@ -151,8 +152,8 @@ public class ExhibitorCLI
         azureConfigOptions.addOption(null, AZURE_CONFIG, true, "The container name and blob name to store the config (azurecredentials may be provided as well). Argument is [container name]:[blob name].");
 
         Options gcsConfigOptions = new Options();
-        s3ConfigOptions.addOption(null, GCS_CONFIG, true, "The bucket name and key to store the config (gcscredentials may be provided as well). Argument is [bucket name]:[key].");
-        s3ConfigOptions.addOption(null, GCS_CONFIG_PREFIX, true, "When using Google Cloud Storage shared config files, the prefix to use for values such as locks. Default is " + DEFAULT_PREFIX);
+        gcsConfigOptions.addOption(null, GCS_CONFIG, true, "The bucket name and key to store the config (gcscredentials may be provided as well). Argument is [bucket name]:[key].");
+        gcsConfigOptions.addOption(null, GCS_CONFIG_PREFIX, true, "When using Google Cloud Storage shared config files, the prefix to use for values such as locks. Default is " + DEFAULT_PREFIX);
 
         Options zookeeperConfigOptions = new Options();
         zookeeperConfigOptions.addOption(null, ZOOKEEPER_CONFIG_INITIAL_CONNECT_STRING, true, "The initial connection string for ZooKeeper shared config storage. E.g: \"host1:2181,host2:2181...\"");
@@ -164,6 +165,9 @@ public class ExhibitorCLI
 
         Options noneConfigOptions = new Options();
         noneConfigOptions.addOption(null, NONE_CONFIG_DIRECTORY, true, "Directory to store the local configuration file. Config type \"none\" is a special purpose type that should only be used when running a second ZooKeeper ensemble that is used for storing config. DO NOT USE THIS MODE for a normal ZooKeeper ensemble.");
+
+        Options staticConfigOptions = new Options();
+        staticConfigOptions.addOption(null, STATIC_ENSEMBLE, true, "List of servers in the static ensemble (comma separated). Each server should be in the form [Server Id]:[Hostname].");
 
         Options backupOptions = new Options();
         backupOptions.addOption(null, S3_BACKUP, true, "If true, enables AWS S3 backup of ZooKeeper log files (s3credentials may be provided as well).");
@@ -210,6 +214,7 @@ public class ExhibitorCLI
         addAll("Configuration Options for Type \"file\"", fileConfigOptions);
         addAll("Configuration Options for Type \"azure\"", azureConfigOptions);
         addAll("Configuration Options for Type \"none\"", noneConfigOptions);
+        addAll("Configuration Options for Type \"static\"", staticConfigOptions);
         addAll("Backup Options", backupOptions);
         addAll("Authorization Options", authOptions);
         addAll("Deprecated Authorization Options", deprecatedAuthOptions);
