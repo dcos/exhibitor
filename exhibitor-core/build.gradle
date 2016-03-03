@@ -23,6 +23,11 @@ dependencies {
     compile 'org.codehaus.jsr166-mirror:jsr166y:1.7.0'
 
     compile "com.amazonaws:aws-java-sdk:${awsVersion}"
+    compile "com.microsoft.azure:azure-storage:${azureVersion}"
+    compile "com.google.api-client:google-api-client:${googleApiVersion}"
+    compile "com.google.apis:google-api-services-storage:${googleStorageVersion}"
+    compile "org.json:json:20140107"
+
     compile "com.sun.jersey:jersey-core:${jerseyVersion}"
     compile "com.sun.jersey:jersey-server:${jerseyVersion}"
     compile "com.sun.jersey:jersey-json:${jerseyVersion}"
