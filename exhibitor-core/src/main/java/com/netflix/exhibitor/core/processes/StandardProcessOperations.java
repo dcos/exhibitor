@@ -25,6 +25,7 @@ import com.netflix.exhibitor.core.state.ServerSpec;
 import com.netflix.exhibitor.core.state.ServerType;
 import com.netflix.exhibitor.core.state.UsState;
 
+import sun.jvmstat.monitor.HostIdentifier;
 import sun.jvmstat.monitor.MonitoredHost;
 import sun.jvmstat.monitor.MonitoredVm;
 import sun.jvmstat.monitor.MonitoredVmUtil;
@@ -183,7 +184,7 @@ public class StandardProcessOperations implements ProcessOperations
     private String getPid() throws IOException
     {
         try {
-            MonitoredHost monitoredHost = MonitoredHost.getMonitoredHost("");
+            MonitoredHost monitoredHost = MonitoredHost.getMonitoredHost(new HostIdentifier((String) null));;
             Set<Integer> jvms = monitoredHost.activeVms();
             for (Integer jvm: jvms) {
                 int lvmid = jvm;
@@ -193,14 +194,17 @@ public class StandardProcessOperations implements ProcessOperations
                     MonitoredVm vm = monitoredHost.getMonitoredVm(id, 0);
                     String mainClass = MonitoredVmUtil.mainClass(vm, false);
                     monitoredHost.detach(vm);
+                    exhibitor.getLog().add(ActivityLog.Type.INFO, "Found VM " + lvmid + " with main class " + mainClass);
                     if (mainClass == "QuorumPeerMain") {
                         return String.valueOf(lvmid);
                     }
                 } catch (Exception e) {
+                    exhibitor.getLog().add(ActivityLog.Type.ERROR, "getMonitoredVm: " + e.toString());
                     continue;
                 }
             }
         } catch (Exception e) {
+            exhibitor.getLog().add(ActivityLog.Type.ERROR, "getMonitoredHost: " + e.toString());
             return null;
         }
         return null;
