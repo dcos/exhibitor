@@ -195,7 +195,7 @@ public class StandardProcessOperations implements ProcessOperations
                     String mainClass = MonitoredVmUtil.mainClass(vm, false);
                     monitoredHost.detach(vm);
                     exhibitor.getLog().add(ActivityLog.Type.INFO, "Found VM " + lvmid + " with main class " + mainClass);
-                    if (mainClass == "QuorumPeerMain") {
+                    if ("QuorumPeerMain".equals(mainClass)) {
                         return String.valueOf(lvmid);
                     }
                 } catch (Exception e) {
