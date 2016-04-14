@@ -1,10 +1,6 @@
-import javax.tools.ToolProvider
-
 apply plugin: 'nebula.provided-base'
 
 dependencies {
-    compile(files(((URLClassLoader) ToolProvider.getSystemToolClassLoader()).getURLs()))
-
     compile('org.apache.zookeeper:zookeeper:3.4.5') {
         exclude group: 'com.sun.jmx', module: 'jmxri'
         exclude group: 'com.sun.jdmk', module: 'jmxtools'

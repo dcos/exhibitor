@@ -24,23 +24,17 @@ import com.netflix.exhibitor.core.config.StringConfigs;
 import com.netflix.exhibitor.core.state.ServerSpec;
 import com.netflix.exhibitor.core.state.ServerType;
 import com.netflix.exhibitor.core.state.UsState;
-
-import sun.jvmstat.monitor.HostIdentifier;
-import sun.jvmstat.monitor.MonitoredHost;
-import sun.jvmstat.monitor.MonitoredVm;
-import sun.jvmstat.monitor.MonitoredVmUtil;
-import sun.jvmstat.monitor.VmIdentifier;
-
 import org.apache.curator.utils.CloseableUtils;
 import java.io.BufferedOutputStream;
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.nio.charset.Charset;
 import java.util.Date;
 import java.util.Properties;
-import java.util.Set;
 
 public class StandardProcessOperations implements ProcessOperations
 {
@@ -183,31 +177,36 @@ public class StandardProcessOperations implements ProcessOperations
 
     private String getPid() throws IOException
     {
-        try {
-            MonitoredHost monitoredHost = MonitoredHost.getMonitoredHost(new HostIdentifier((String) null));;
-            Set<Integer> jvms = monitoredHost.activeVms();
-            for (Integer jvm: jvms) {
-                int lvmid = jvm;
-                String vmidString = "//" + lvmid + "?mode=r";
-                VmIdentifier id = new VmIdentifier(vmidString);
-                try {
-                    MonitoredVm vm = monitoredHost.getMonitoredVm(id, 0);
-                    String mainClass = MonitoredVmUtil.mainClass(vm, false);
-                    monitoredHost.detach(vm);
-                    exhibitor.getLog().add(ActivityLog.Type.INFO, "Found VM " + lvmid + " with main class " + mainClass);
-                    if ("QuorumPeerMain".equals(mainClass)) {
-                        return String.valueOf(lvmid);
-                    }
-                } catch (Exception e) {
-                    exhibitor.getLog().add(ActivityLog.Type.ERROR, "getMonitoredVm: " + e.toString());
-                    continue;
+        ProcessBuilder          builder = new ProcessBuilder("jps");
+        Process                 jpsProcess = builder.start();
+        String                  pid = null;
+        try
+        {
+            BufferedReader in = new BufferedReader(new InputStreamReader(jpsProcess.getInputStream()));
+            for(;;)
+            {
+                String  line = in.readLine();
+                if ( line == null )
+                {
+                    break;
+                }
+                String[]  components = line.split("[ \t]");
+                if ( (components.length == 2) && components[1].equals("QuorumPeerMain") )
+                {
+                    pid = components[0];
+                    break;
                 }
             }
-        } catch (Exception e) {
-            exhibitor.getLog().add(ActivityLog.Type.ERROR, "getMonitoredHost: " + e.toString());
-            return null;
         }
-        return null;
+        finally
+        {
+            CloseableUtils.closeQuietly(jpsProcess.getErrorStream());
+            CloseableUtils.closeQuietly(jpsProcess.getInputStream());
+            CloseableUtils.closeQuietly(jpsProcess.getOutputStream());
+
+            jpsProcess.destroy();
+        }
+        return pid;
     }
 
     private void waitForKill(String pid) throws IOException, InterruptedException
