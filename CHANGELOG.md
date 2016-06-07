@@ -1,3 +1,10 @@
+1.5.6 - December 4, 2015
+========================
+
+* Pull 263: Making the lock key separator in PseudoLockBase configurable
+* Pull 268: Fix JSON config integer parsing (issue #184)
+* Pull 267: Update AWS version
+
 1.5.5 - March 4, 2015
 =====================
 
