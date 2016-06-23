@@ -42,6 +42,12 @@ public enum StringConfigs
         }
     },
 
+    ZOOKEEPER_CONFIG_DIRECTORY
+    {
+        @Override
+        public boolean isRestartSignificant() { return true; }
+    },
+
     /**
      * Where to store ZooKeeper snapshots
      */
@@ -64,6 +70,12 @@ public enum StringConfigs
         {
             return true;
         }
+    },
+
+    ZOOKEEPER_PID_PATH
+    {
+        @Override
+        public boolean isRestartSignificant() { return true; }
     },
 
     /**

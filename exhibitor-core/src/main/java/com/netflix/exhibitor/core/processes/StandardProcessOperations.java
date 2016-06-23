@@ -19,6 +19,7 @@ package com.netflix.exhibitor.core.processes;
 import com.google.common.io.Files;
 import com.netflix.exhibitor.core.Exhibitor;
 import com.netflix.exhibitor.core.activity.ActivityLog;
+import com.netflix.exhibitor.core.config.InstanceConfig;
 import com.netflix.exhibitor.core.config.IntConfigs;
 import com.netflix.exhibitor.core.config.StringConfigs;
 import com.netflix.exhibitor.core.state.ServerSpec;
@@ -93,10 +94,16 @@ public class StandardProcessOperations implements ProcessOperations
 
     private ProcessBuilder buildZkServerScript(String operation) throws IOException
     {
+        InstanceConfig config = exhibitor.getConfigManager().getConfig();
         Details         details = new Details(exhibitor);
         File            binDirectory = new File(details.zooKeeperDirectory, "bin");
         File            zkServerScript = new File(binDirectory, "zkServer.sh");
-        return new ProcessBuilder(zkServerScript.getPath(), operation).directory(binDirectory.getParentFile());
+        String zkConfigDir = config.getString(StringConfigs.ZOOKEEPER_CONFIG_DIRECTORY);
+        ProcessBuilder pb = new ProcessBuilder(zkServerScript.getPath(), operation, new File(zkConfigDir, "zoo.cfg").getPath()).directory(binDirectory.getParentFile());
+        pb.environment().put("ZOOCFGDIR", zkConfigDir);
+        pb.environment().put("ZOO_LOG_DIR", new File(config.getString(StringConfigs.ZOOKEEPER_LOG_DIRECTORY)).getParentFile().getPath());
+        pb.environment().put("ZOOPIDFILE", config.getString(StringConfigs.ZOOKEEPER_PID_PATH));
+        return pb;
     }
 
     @Override

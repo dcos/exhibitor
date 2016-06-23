@@ -53,7 +53,7 @@ class Details
         String      logDirectory = config.getString(StringConfigs.ZOOKEEPER_LOG_DIRECTORY);
         this.logDirectory = (logDirectory.trim().length() > 0) ? new File(logDirectory) : this.dataDirectory;
 
-        configDirectory = new File(zooKeeperDirectory, "conf");
+        configDirectory = new File(config.getString(StringConfigs.ZOOKEEPER_CONFIG_DIRECTORY));
         logPaths = findJar(new File(zooKeeperDirectory, "lib"), "(.*log4j.*)|(.*slf4j.*)");
         zooKeeperJarPath = findJar(this.zooKeeperDirectory, "zookeeper.*");
 
