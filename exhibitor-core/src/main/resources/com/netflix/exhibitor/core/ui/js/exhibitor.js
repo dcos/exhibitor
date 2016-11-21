@@ -249,6 +249,7 @@ function buildNewConfig()
     newConfig.zookeeperInstallDirectory = $('#config-zookeeper-install-dir').val();
     newConfig.zookeeperDataDirectory = $('#config-zookeeper-snapshot-dir').val();
     newConfig.zookeeperLogDirectory = $('#config-zookeeper-log-dir').val();
+    newConfig.zookeeperConfigDirectory = $('#config-zookeeper-config-dir').val();
     newConfig.logIndexDirectory = $('#config-log-index-dir').val();
     newConfig.autoManageInstancesSettlingPeriodMs = $('#config-automatic-management-period-ms').val();
     newConfig.autoManageInstancesFixedEnsembleSize = $('#config-fixed-ensemble-size').val();
@@ -359,6 +360,7 @@ function ableConfig(enable)
     $('#config-zookeeper-install-dir').prop('disabled', !enable);
     $('#config-zookeeper-snapshot-dir').prop('disabled', !enable);
     $('#config-zookeeper-log-dir').prop('disabled', !enable);
+    $('#config-zookeeper-config-dir').prop('disabled', !enable);
     $('#config-automatic-management-period-ms').prop('disabled', !enable);
     $('#config-fixed-ensemble-size').prop('disabled', !enable);
     $('#config-observer-threshold').prop('disabled', !enable);
@@ -403,6 +405,7 @@ function updateConfig()
     $('#config-zookeeper-install-dir').val(systemConfig.zookeeperInstallDirectory);
     $('#config-zookeeper-snapshot-dir').val(systemConfig.zookeeperDataDirectory);
     $('#config-zookeeper-log-dir').val(systemConfig.zookeeperLogDirectory);
+    $('#config-zookeeper-config-dir').val(systemConfig.zookeeperConfigDirectory);
     $('#config-automatic-management-period-ms').val(systemConfig.autoManageInstancesSettlingPeriodMs);
     $('#config-fixed-ensemble-size').val(systemConfig.autoManageInstancesFixedEnsembleSize);
     $('#config-observer-threshold').val(systemConfig.observerThreshold);
@@ -540,6 +543,7 @@ function checkConfigConfirmation()
         (newConfig.zookeeperInstallDirectory != systemConfig.zookeeperInstallDirectory)
         || (newConfig.zookeeperDataDirectory != systemConfig.zookeeperDataDirectory)
         || (newConfig.zookeeperLogDirectory != systemConfig.zookeeperLogDirectory)
+        || (newConfig.zookeeperConfigDirectory != systemConfig.zookeeperConfigDirectory)
         || (newConfig.serversSpec != systemConfig.serversSpec)
         || (newConfig.clientPort != systemConfig.clientPort)
         || (newConfig.connectPort != systemConfig.connectPort)
