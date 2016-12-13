@@ -37,9 +37,12 @@ import com.sun.jersey.api.client.filter.HTTPBasicAuthFilter;
 import com.sun.jersey.api.client.filter.HTTPDigestAuthFilter;
 import com.sun.jersey.api.core.DefaultResourceConfig;
 import org.apache.curator.utils.CloseableUtils;
+import org.eclipse.jetty.util.thread.ExecutorThreadPool;
+import org.mortbay.jetty.Connector;
 import org.mortbay.jetty.Handler;
 import org.mortbay.jetty.Server;
 import org.mortbay.jetty.handler.ContextHandler;
+import org.mortbay.jetty.nio.SelectChannelConnector;
 import org.mortbay.jetty.security.HashUserRealm;
 import org.mortbay.jetty.security.SecurityHandler;
 import org.mortbay.jetty.servlet.Context;
@@ -53,6 +56,8 @@ import java.io.IOException;
 import java.net.URL;
 import java.util.Arrays;
 import java.util.Map;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class ExhibitorMain implements Closeable
@@ -124,7 +129,24 @@ public class ExhibitorMain implements Closeable
 
         DefaultResourceConfig   application = JerseySupport.newApplicationConfig(new UIContext(exhibitor));
         ServletContainer        container = new ServletContainer(application);
-        server = new Server(httpPort);
+
+        server = new Server();
+
+        SelectChannelConnector connector = new SelectChannelConnector();
+        connector.setPort(httpPort);
+        connector.setAcceptors(8);
+        connector.setMaxIdleTime(5000);
+        connector.setAcceptQueueSize(32);
+        server.setConnectors(new Connector[]{connector});
+
+        final int maxQueueSize = 64;
+        LinkedBlockingQueue<Runnable> queue = new LinkedBlockingQueue<Runnable>(maxQueueSize);
+        final int minThreads = 10;
+        final int maxThreads = 100;
+        final int maxIdleTime = 5;
+        ExecutorThreadPool threadPool = new ExecutorThreadPool(minThreads, maxThreads, maxIdleTime, TimeUnit.SECONDS, queue);
+        server.setThreadPool(threadPool);
+
         Context root = new Context(server, "/", Context.SESSIONS);
         root.addFilter(ExhibitorServletFilter.class, "/", Handler.ALL);
         root.addServlet(new ServletHolder(container), "/*");
