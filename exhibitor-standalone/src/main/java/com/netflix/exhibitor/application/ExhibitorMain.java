@@ -37,9 +37,12 @@ import com.sun.jersey.api.client.filter.HTTPBasicAuthFilter;
 import com.sun.jersey.api.client.filter.HTTPDigestAuthFilter;
 import com.sun.jersey.api.core.DefaultResourceConfig;
 import org.apache.curator.utils.CloseableUtils;
+import org.eclipse.jetty.util.thread.ExecutorThreadPool;
+import org.mortbay.jetty.Connector;
 import org.mortbay.jetty.Handler;
 import org.mortbay.jetty.Server;
 import org.mortbay.jetty.handler.ContextHandler;
+import org.mortbay.jetty.nio.SelectChannelConnector;
 import org.mortbay.jetty.security.HashUserRealm;
 import org.mortbay.jetty.security.SecurityHandler;
 import org.mortbay.jetty.servlet.Context;
@@ -53,6 +56,8 @@ import java.io.IOException;
 import java.net.URL;
 import java.util.Arrays;
 import java.util.Map;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class ExhibitorMain implements Closeable
@@ -124,7 +129,53 @@ public class ExhibitorMain implements Closeable
 
         DefaultResourceConfig   application = JerseySupport.newApplicationConfig(new UIContext(exhibitor));
         ServletContainer        container = new ServletContainer(application);
-        server = new Server(httpPort);
+
+        server = new Server();
+
+        // By default the jetty.bio.SocketConnector is used. The
+        // SocketConnector performs blocking I/O and so suffers from
+        // spawning a new thread per connection. To improve
+        // performance and limit the number of threads we switch to
+        // the jetty.nio.SelectChannelConnector. This is a
+        // non-blocking I/O connector.
+        // See https://dcosjira.atlassian.net/browse/DCOS-558
+        SelectChannelConnector connector = new SelectChannelConnector();
+        connector.setPort(httpPort);
+        connector.setAcceptors(8);
+        connector.setMaxIdleTime(5000);
+        connector.setAcceptQueueSize(32);
+        server.setConnectors(new Connector[]{connector});
+
+        // The server's threadPool implementation defaults to the
+        // QueuedThreadPool.  The QueuedThreadPool has no limit on the
+        // length of the queue. This means that in a scenario where
+        // requests are arriving faster than they can be served, the
+        // queue length grows as long as that state is
+        // maintained. Additionally, once the request rate drops, the
+        // backlog is serviced first, which means that stopping the
+        // source of requests doesn't lead to the service becoming
+        // responsive again promptly.
+        //
+        // Jetty 6.1.22 includes a BoundedThreadPool which on first
+        // inspection seems to address this issue but it does not. The
+        // 'Bounded' part refers to the size of the thread pool, not
+        // to the length of the task queue.
+        //
+        // As such we have back-ported the ExecutorThreadPool. The
+        // ExecutorThreadPool supports bounding the number of threads
+        // in the threadPool and also setting a custom task queue. For
+        // this queue we use the LinkedBlockingQueue which allows one
+        // to limit the length of the queue. Requests arriving when
+        // the queue is full will be refused.
+        // See https://dcosjira.atlassian.net/browse/DCOS-558
+        final int maxQueueSize = 64;
+        LinkedBlockingQueue<Runnable> queue = new LinkedBlockingQueue<Runnable>(maxQueueSize);
+        final int minThreads = 10;
+        final int maxThreads = 100;
+        final int maxIdleTime = 5;
+        ExecutorThreadPool threadPool = new ExecutorThreadPool(minThreads, maxThreads, maxIdleTime, TimeUnit.SECONDS, queue);
+        server.setThreadPool(threadPool);
+
         Context root = new Context(server, "/", Context.SESSIONS);
         root.addFilter(ExhibitorServletFilter.class, "/", Handler.ALL);
         root.addServlet(new ServletHolder(container), "/*");
