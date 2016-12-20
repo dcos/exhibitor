@@ -14,7 +14,10 @@ subprojects {
     version = '1.5.6-SNAPSHOT'
 
     repositories {
-        jcenter()
+        jcenter 
+        { 
+            url 'http://jcenter.bintray.com' 
+        }
     }
 
     sourceCompatibility = 1.6
