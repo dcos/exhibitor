@@ -168,12 +168,14 @@ public class ExhibitorMain implements Closeable
         // to limit the length of the queue. Requests arriving when
         // the queue is full will be refused.
         // See https://dcosjira.atlassian.net/browse/DCOS-558
-        final int maxQueueSize = 64;
+        final int maxQueueSize = 4096;
         LinkedBlockingQueue<Runnable> queue = new LinkedBlockingQueue<Runnable>(maxQueueSize);
-        final int minThreads = 10;
+        // corePoolSize needs to be much higher than the number of Acceptors
+        // See https://jira.mesosphere.com/browse/DCOS-14045
+        final int corePoolSize = 20;
         final int maxThreads = 100;
         final int maxIdleTime = 5;
-        ExecutorThreadPool threadPool = new ExecutorThreadPool(minThreads, maxThreads, maxIdleTime, TimeUnit.SECONDS, queue);
+        ExecutorThreadPool threadPool = new ExecutorThreadPool(corePoolSize, maxThreads, maxIdleTime, TimeUnit.SECONDS, queue);
         server.setThreadPool(threadPool);
 
         Context root = new Context(server, "/", Context.SESSIONS);
