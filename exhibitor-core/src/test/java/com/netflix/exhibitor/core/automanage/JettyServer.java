@@ -22,7 +22,7 @@ import javax.ws.rs.Produces;
 import javax.ws.rs.core.MediaType;
 
 import org.mortbay.jetty.Server;
-import org.mortbay.jetty.security.SslSocketConnector;
+import org.mortbay.jetty.security.SslSelectChannelConnector;
 import org.mortbay.jetty.servlet.Context;
 import org.mortbay.jetty.servlet.ServletHolder;
 
@@ -55,7 +55,7 @@ public class JettyServer
     {
         server = new Server();
 
-        SslSocketConnector connector = new SslSocketConnector();
+        SslSelectChannelConnector connector = new SslSelectChannelConnector();
         connector.setPort(port);
         connector.setKeystore(httpsConf.getServerKeystorePath());
         connector.setKeyPassword(httpsConf.getServerKeystorePassword());
@@ -68,6 +68,10 @@ public class JettyServer
         }
 
         connector.setWantClientAuth(httpsConf.isRequireClientCert());
+
+        connector.setAcceptors(8);
+        connector.setMaxIdleTime(5000);
+        connector.setAcceptQueueSize(32);
 
         server.addConnector(connector);
         server.setStopAtShutdown(true);

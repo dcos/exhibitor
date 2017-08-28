@@ -45,7 +45,7 @@ import org.mortbay.jetty.handler.ContextHandler;
 import org.mortbay.jetty.nio.SelectChannelConnector;
 import org.mortbay.jetty.security.HashUserRealm;
 import org.mortbay.jetty.security.SecurityHandler;
-import org.mortbay.jetty.security.SslSocketConnector;
+import org.mortbay.jetty.security.SslSelectChannelConnector;
 import org.mortbay.jetty.servlet.Context;
 import org.mortbay.jetty.servlet.ServletHolder;
 import org.mortbay.jetty.webapp.WebAppContext;
@@ -133,23 +133,23 @@ public class ExhibitorMain implements Closeable
         server = new Server();
         HttpsConfiguration httpsConf = exhibitor.getHttpsConfiguration();
 
+        SelectChannelConnector connector = null;
         if ( httpsConf.getServerKeystorePath() != null )
         {
-            SslSocketConnector connector = new SslSocketConnector();
-            connector.setPort(exhibitor.getRestPort());
-            connector.setKeystore(httpsConf.getServerKeystorePath());
-            connector.setKeyPassword(httpsConf.getServerKeystorePassword());
+            connector = new SslSelectChannelConnector();
+            SslSelectChannelConnector sslConnector = (SslSelectChannelConnector) connector;
+            sslConnector.setPort(exhibitor.getRestPort());
+            sslConnector.setKeystore(httpsConf.getServerKeystorePath());
+            sslConnector.setKeyPassword(httpsConf.getServerKeystorePassword());
 
             if ( httpsConf.isVerifyPeerCert() )
             {
-                connector.setTruststore(httpsConf.getTruststorePath());
-                connector.setTrustPassword(httpsConf.getTruststorePassword());
-                connector.setNeedClientAuth(true);
+                sslConnector.setTruststore(httpsConf.getTruststorePath());
+                sslConnector.setTrustPassword(httpsConf.getTruststorePassword());
+                sslConnector.setNeedClientAuth(true);
             }
 
-            connector.setWantClientAuth(httpsConf.isRequireClientCert());
-
-            server.addConnector(connector);
+            sslConnector.setWantClientAuth(httpsConf.isRequireClientCert());
         }
         else
         {
@@ -160,13 +160,14 @@ public class ExhibitorMain implements Closeable
             // the jetty.nio.SelectChannelConnector. This is a
             // non-blocking I/O connector.
             // See https://dcosjira.atlassian.net/browse/DCOS-558
-            SelectChannelConnector connector = new SelectChannelConnector();
+            connector = new SelectChannelConnector();
             connector.setPort(exhibitor.getRestPort());
-            connector.setAcceptors(8);
-            connector.setMaxIdleTime(5000);
-            connector.setAcceptQueueSize(32);
-            server.addConnector(connector);
         }
+
+        connector.setAcceptors(8);
+        connector.setMaxIdleTime(5000);
+        connector.setAcceptQueueSize(32);
+        server.addConnector(connector);
 
         // The server's threadPool implementation defaults to the
         // QueuedThreadPool.  The QueuedThreadPool has no limit on the
