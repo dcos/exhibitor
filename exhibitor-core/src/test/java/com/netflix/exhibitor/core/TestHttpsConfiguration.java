@@ -21,7 +21,7 @@ public class TestHttpsConfiguration
         }
         catch ( Exception e )
         {
-            if ( e.getMessage().contains("Server keystore path/password") )
+            if ( e.getMessage().contains("EXHIBITOR_TLS_SERVER_KEYSTORE_PATH and EXHIBITOR_TLS_SERVER_KEYSTORE_PASSWORD") )
             {
                 throw new Exception();
             }
@@ -61,7 +61,7 @@ public class TestHttpsConfiguration
         }
         catch ( Exception e )
         {
-            if ( e.getMessage().contains("Client keystore path/password") )
+            if ( e.getMessage().contains("EXHIBITOR_TLS_CLIENT_KEYSTORE_PATH and EXHIBITOR_TLS_CLIENT_KEYSTORE_PASSWORD") )
             {
                 throw new Exception();
             }
@@ -82,7 +82,7 @@ public class TestHttpsConfiguration
         }
         catch ( Exception e )
         {
-            if ( e.getMessage().contains("Truststore path/password") )
+            if ( e.getMessage().contains("EXHIBITOR_TLS_TRUSTSTORE_PATH and EXHIBITOR_TLS_TRUSTSTORE_PASSWORD") )
             {
                 throw new Exception();
             }

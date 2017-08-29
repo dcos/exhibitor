@@ -114,11 +114,11 @@ public class HttpsConfiguration
         public HttpsConfiguration build()
         {
             Preconditions.checkArgument(!(httpsConf.serverKeystorePath == null ^ httpsConf.serverKeystorePassword == null),
-                "Server keystore path/password must be both/neither specified.");
+                "Both or neither of EXHIBITOR_TLS_SERVER_KEYSTORE_PATH and EXHIBITOR_TLS_SERVER_KEYSTORE_PASSWORD must be specified.");
             Preconditions.checkArgument(!(httpsConf.clientKeystorePath == null ^ httpsConf.clientKeystorePassword == null),
-                "Client keystore path/password must be both/neither specified.");
+                "Both or neither of EXHIBITOR_TLS_CLIENT_KEYSTORE_PATH and EXHIBITOR_TLS_CLIENT_KEYSTORE_PASSWORD must be specified.");
             Preconditions.checkArgument(!(httpsConf.truststorePath == null ^ httpsConf.truststorePassword == null),
-                "Truststore path/password must be both/neither specified.");
+                "Both or neither of EXHIBITOR_TLS_TRUSTSTORE_PATH and EXHIBITOR_TLS_TRUSTSTORE_PASSWORD must be specified.");
             Preconditions.checkArgument(httpsConf.serverKeystorePath == null || !httpsConf.verifyPeerCert
                 || httpsConf.truststorePath != null,
                 "Verify peer cert requires truststore path and password to be specified.");
