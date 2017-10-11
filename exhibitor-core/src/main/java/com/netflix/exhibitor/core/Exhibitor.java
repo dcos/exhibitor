@@ -26,6 +26,7 @@ import com.netflix.exhibitor.core.activity.RepeatingActivityImpl;
 import com.netflix.exhibitor.core.automanage.AutomaticInstanceManagement;
 import com.netflix.exhibitor.core.automanage.RemoteInstanceRequestClient;
 import com.netflix.exhibitor.core.automanage.RemoteInstanceRequestClientImpl;
+import com.netflix.exhibitor.core.automanage.RemoteInstanceRequestHttpsClientImpl;
 import com.netflix.exhibitor.core.backup.BackupManager;
 import com.netflix.exhibitor.core.backup.BackupProvider;
 import com.netflix.exhibitor.core.config.ConfigListener;
@@ -135,7 +136,14 @@ public class Exhibitor implements Closeable
         processMonitor = new ProcessMonitor(this);
         autoInstanceManagement = new RepeatingActivityImpl(log, activityQueue, QueueGroups.MAIN, new AutomaticInstanceManagement(this), getAutoInstanceManagementPeriod());
 
-        remoteInstanceRequestClient = new RemoteInstanceRequestClientImpl(arguments.remoteConnectionConfiguration);
+        if(arguments.httpsConfiguration.getServerKeystorePath() != null)
+        {
+            remoteInstanceRequestClient = new RemoteInstanceRequestHttpsClientImpl(arguments.remoteConnectionConfiguration, arguments.httpsConfiguration);
+        }
+        else
+        {
+            remoteInstanceRequestClient = new RemoteInstanceRequestClientImpl(arguments.remoteConnectionConfiguration);
+        }
 
         AtomicReference<CompositeMonitor<?>>    theMonitor = new AtomicReference<CompositeMonitor<?>>();
         servoMonitoring = initServo(this, log, activityQueue, arguments, theMonitor);
@@ -363,6 +371,11 @@ public class Exhibitor implements Closeable
     public RemoteInstanceRequestClient getRemoteInstanceRequestClient()
     {
         return remoteInstanceRequestClient;
+    }
+
+    public HttpsConfiguration getHttpsConfiguration()
+    {
+        return arguments.httpsConfiguration;
     }
 
     public ExhibitorArguments.LogDirection getLogDirection()

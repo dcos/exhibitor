@@ -24,6 +24,7 @@ import com.netflix.exhibitor.servlet.ExhibitorServletFilter;
 import com.sun.jersey.spi.container.servlet.ServletContainer;
 import com.netflix.exhibitor.core.Exhibitor;
 import com.netflix.exhibitor.core.ExhibitorArguments;
+import com.netflix.exhibitor.core.HttpsConfiguration;
 import com.netflix.exhibitor.core.RemoteConnectionConfiguration;
 import com.netflix.exhibitor.core.backup.BackupProvider;
 import com.netflix.exhibitor.core.config.ConfigProvider;
@@ -38,13 +39,13 @@ import com.sun.jersey.api.client.filter.HTTPDigestAuthFilter;
 import com.sun.jersey.api.core.DefaultResourceConfig;
 import org.apache.curator.utils.CloseableUtils;
 import org.eclipse.jetty.util.thread.ExecutorThreadPool;
-import org.mortbay.jetty.Connector;
 import org.mortbay.jetty.Handler;
 import org.mortbay.jetty.Server;
 import org.mortbay.jetty.handler.ContextHandler;
 import org.mortbay.jetty.nio.SelectChannelConnector;
 import org.mortbay.jetty.security.HashUserRealm;
 import org.mortbay.jetty.security.SecurityHandler;
+import org.mortbay.jetty.security.SslSelectChannelConnector;
 import org.mortbay.jetty.servlet.Context;
 import org.mortbay.jetty.servlet.ServletHolder;
 import org.mortbay.jetty.webapp.WebAppContext;
@@ -93,7 +94,6 @@ public class ExhibitorMain implements Closeable
             creator.getBackupProvider(),
             creator.getConfigProvider(),
             creator.getBuilder(),
-            creator.getHttpPort(),
             creator.getSecurityHandler(),
             securityArguments
         );
@@ -115,7 +115,7 @@ public class ExhibitorMain implements Closeable
         }
     }
 
-    public ExhibitorMain(BackupProvider backupProvider, ConfigProvider configProvider, ExhibitorArguments.Builder builder, int httpPort, SecurityHandler security, SecurityArguments securityArguments) throws Exception
+    public ExhibitorMain(BackupProvider backupProvider, ConfigProvider configProvider, ExhibitorArguments.Builder builder, SecurityHandler security, SecurityArguments securityArguments) throws Exception
     {
         HashUserRealm realm = makeRealm(securityArguments);
         if ( securityArguments.getRemoteAuthSpec() != null )
@@ -131,20 +131,43 @@ public class ExhibitorMain implements Closeable
         ServletContainer        container = new ServletContainer(application);
 
         server = new Server();
+        HttpsConfiguration httpsConf = exhibitor.getHttpsConfiguration();
 
-        // By default the jetty.bio.SocketConnector is used. The
-        // SocketConnector performs blocking I/O and so suffers from
-        // spawning a new thread per connection. To improve
-        // performance and limit the number of threads we switch to
-        // the jetty.nio.SelectChannelConnector. This is a
-        // non-blocking I/O connector.
-        // See https://dcosjira.atlassian.net/browse/DCOS-558
-        SelectChannelConnector connector = new SelectChannelConnector();
-        connector.setPort(httpPort);
+        SelectChannelConnector connector = null;
+        if ( httpsConf.getServerKeystorePath() != null )
+        {
+            connector = new SslSelectChannelConnector();
+            SslSelectChannelConnector sslConnector = (SslSelectChannelConnector) connector;
+            sslConnector.setPort(exhibitor.getRestPort());
+            sslConnector.setKeystore(httpsConf.getServerKeystorePath());
+            sslConnector.setKeyPassword(httpsConf.getServerKeystorePassword());
+
+            if ( httpsConf.isVerifyPeerCert() )
+            {
+                sslConnector.setTruststore(httpsConf.getTruststorePath());
+                sslConnector.setTrustPassword(httpsConf.getTruststorePassword());
+                sslConnector.setNeedClientAuth(true);
+            }
+
+            sslConnector.setWantClientAuth(httpsConf.isRequireClientCert());
+        }
+        else
+        {
+            // By default the jetty.bio.SocketConnector is used. The
+            // SocketConnector performs blocking I/O and so suffers from
+            // spawning a new thread per connection. To improve
+            // performance and limit the number of threads we switch to
+            // the jetty.nio.SelectChannelConnector. This is a
+            // non-blocking I/O connector.
+            // See https://dcosjira.atlassian.net/browse/DCOS-558
+            connector = new SelectChannelConnector();
+            connector.setPort(exhibitor.getRestPort());
+        }
+
         connector.setAcceptors(8);
         connector.setMaxIdleTime(5000);
         connector.setAcceptQueueSize(32);
-        server.setConnectors(new Connector[]{connector});
+        server.addConnector(connector);
 
         // The server's threadPool implementation defaults to the
         // QueuedThreadPool.  The QueuedThreadPool has no limit on the

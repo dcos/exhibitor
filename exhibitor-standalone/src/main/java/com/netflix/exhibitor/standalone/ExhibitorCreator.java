@@ -20,6 +20,8 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.netflix.exhibitor.core.ExhibitorArguments;
+import com.netflix.exhibitor.core.ExhibitorEnv;
+import com.netflix.exhibitor.core.HttpsConfiguration;
 import com.netflix.exhibitor.core.azure.AzureClientFactoryImpl;
 import com.netflix.exhibitor.core.azure.PropertyBasedAzureCredential;
 import com.netflix.exhibitor.core.backup.BackupProvider;
@@ -85,6 +87,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 
@@ -98,7 +101,6 @@ public class ExhibitorCreator
     private final SecurityHandler securityHandler;
     private final BackupProvider backupProvider;
     private final ConfigProvider configProvider;
-    private final int httpPort;
     private final List<Closeable> closeables = Lists.newArrayList();
     private final String securityFile;
     private final String realmSpec;
@@ -107,6 +109,7 @@ public class ExhibitorCreator
     public ExhibitorCreator(String[] args) throws Exception
     {
         ExhibitorCLI        cli = new ExhibitorCLI();
+        Map<String, String> env = System.getenv();
 
         CommandLine commandLine;
         try
@@ -230,7 +233,19 @@ public class ExhibitorCreator
             servoRegistration = new ServoRegistration(new JmxMonitorRegistry("exhibitor"), 60000);
         }
 
-        String              preferencesPath = commandLine.getOptionValue(PREFERENCES_PATH);
+        HttpsConfiguration httpsConfiguration = HttpsConfiguration.builder()
+            .serverKeystorePath(env.get(ExhibitorEnv.SERVER_KEYSTORE_PATH))
+            .serverKeystorePassword(env.get(ExhibitorEnv.SERVER_KEYSTORE_PASSWORD))
+            .clientKeystorePath(env.get(ExhibitorEnv.CLIENT_KEYSTORE_PATH))
+            .clientKeystorePassword(env.get(ExhibitorEnv.CLIENT_KEYSTORE_PASSWORD))
+            .truststorePath(env.get(ExhibitorEnv.TRUSTSTORE_PATH))
+            .truststorePassword(env.get(ExhibitorEnv.TRUSTSTORE_PASSWORD))
+            .requireClientCert(env.get(ExhibitorEnv.REQUIRE_CLIENT_CERT))
+            .verifyPeerCert(env.get(ExhibitorEnv.VERIFY_PEER_CERT))
+            .build();
+
+        String preferencesPath = commandLine.getOptionValue(PREFERENCES_PATH);
+        String restScheme = httpsConfiguration.getServerKeystorePath() != null ? "https" : "http";
 
         this.builder = ExhibitorArguments.builder()
             .connectionTimeOutMs(timeoutMs)
@@ -241,25 +256,21 @@ public class ExhibitorCreator
             .allowNodeMutations(allowNodeMutations)
             .jQueryStyle(jQueryStyle)
             .restPort(httpPort)
+            .restScheme(restScheme)
             .aclProvider(aclProvider)
             .servoRegistration(servoRegistration)
             .preferencesPath(preferencesPath)
+            .httpsConfiguration(httpsConfiguration)
         ;
 
         this.securityHandler = handler;
         this.backupProvider = backupProvider;
         this.configProvider = configProvider;
-        this.httpPort = httpPort;
     }
 
     public ExhibitorArguments.Builder getBuilder()
     {
         return builder;
-    }
-
-    public int getHttpPort()
-    {
-        return httpPort;
     }
 
     public ConfigProvider getConfigProvider()
