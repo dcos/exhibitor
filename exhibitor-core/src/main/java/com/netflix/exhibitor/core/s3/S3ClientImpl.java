@@ -32,8 +32,6 @@ public class S3ClientImpl implements S3Client
     private final AtomicReference<RefCountedClient> client = new AtomicReference<RefCountedClient>(null);
     private final String s3Region;
 
-    private static final String         ENDPOINT_SPEC = System.getProperty("exhibitor-s3-endpoint", "https://s3$REGION$.amazonaws.com");
-
     public S3ClientImpl(S3Credential credentials, String s3Region)
     {
         this.s3Region = s3Region;
@@ -278,14 +276,6 @@ public class S3ClientImpl implements S3Client
             {
                 localClient = new AmazonS3Client();
             }
-        }
-
-        if ( s3Region != null )
-        {
-            String      fixedRegion = s3Region.equals("us-east-1") ? "" : ("-" + s3Region);
-            String      endpoint = ENDPOINT_SPEC.replace("$REGION$", fixedRegion);
-            localClient.setEndpoint(endpoint);
-            log.info("Setting S3 endpoint to: " + endpoint);
         }
 
         return localClient;
