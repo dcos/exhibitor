@@ -18,6 +18,7 @@ package com.netflix.exhibitor.core.s3;
 
 import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.auth.BasicAWSCredentials;
+import com.amazonaws.regions.RegionUtils;
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.model.*;
 import com.amazonaws.services.s3.AmazonS3; 
@@ -32,16 +33,6 @@ public class S3ClientImpl implements S3Client
     private final Logger log = LoggerFactory.getLogger(getClass());
     private final AtomicReference<RefCountedClient> client = new AtomicReference<RefCountedClient>(null);
     private final String s3Region;
-
-    private String s3Endpoint; 
- 
-    public String getS3Endpoint() { 
-    return s3Endpoint; 
-    }  
- 
-    public void setS3Endpoint(String s3Endpoint) { 
-    this.s3Endpoint = s3Endpoint; 
-    } 
 
     public S3ClientImpl(S3Credential credentials, String s3Region)
     {
@@ -255,12 +246,15 @@ public class S3ClientImpl implements S3Client
     private AmazonS3Client createClient(AWSCredentialsProvider awsCredentialProvider, BasicAWSCredentials basicAWSCredentials, S3ClientConfig clientConfig)
     {
         AmazonS3Client localClient;
+
+        // Setting endpoint property will always supersede region setting.
+        String endpoint = System.getProperty("exhibitor-s3-endpoint");
+
         if ( awsCredentialProvider != null )
         {
             if ( clientConfig != null )
             {
                 localClient = new AmazonS3Client(awsCredentialProvider, clientConfig.getAWSClientConfig());
-		localClient.setEndpoint(getS3Endpoint());
             }
             else
             {
@@ -288,6 +282,17 @@ public class S3ClientImpl implements S3Client
             {
                 localClient = new AmazonS3Client();
             }
+        }
+
+        if ( endpoint != null )
+        {
+            localClient.setEndpoint(endpoint);
+            log.info("Setting S3 endpoint to: " + endpoint);
+        }
+        else if ( s3Region != null)
+        {
+            localClient.setRegion(RegionUtils.getRegion(s3Region));
+            log.info("Setting S3 region to: " + s3Region);
         }
 
         return localClient;
