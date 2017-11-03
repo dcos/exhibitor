@@ -20,6 +20,7 @@ import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.model.*;
+import com.amazonaws.services.s3.AmazonS3; 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -31,6 +32,16 @@ public class S3ClientImpl implements S3Client
     private final Logger log = LoggerFactory.getLogger(getClass());
     private final AtomicReference<RefCountedClient> client = new AtomicReference<RefCountedClient>(null);
     private final String s3Region;
+
+    private String s3Endpoint; 
+ 
+    public String getS3Endpoint() { 
+    return s3Endpoint; 
+    }  
+ 
+    public void setS3Endpoint(String s3Endpoint) { 
+    this.s3Endpoint = s3Endpoint; 
+    } 
 
     public S3ClientImpl(S3Credential credentials, String s3Region)
     {
@@ -249,6 +260,7 @@ public class S3ClientImpl implements S3Client
             if ( clientConfig != null )
             {
                 localClient = new AmazonS3Client(awsCredentialProvider, clientConfig.getAWSClientConfig());
+		localClient.setEndpoint(getS3Endpoint());
             }
             else
             {
