@@ -34,16 +34,6 @@ public class S3ClientImpl implements S3Client
     private final AtomicReference<RefCountedClient> client = new AtomicReference<RefCountedClient>(null);
     private final String s3Region;
 
-    private String s3Endpoint; 
- 
-    public String getS3Endpoint() { 
-    return s3Endpoint; 
-    }  
- 
-    public void setS3Endpoint(String s3Endpoint) { 
-    this.s3Endpoint = s3Endpoint; 
-    } 
-
     public S3ClientImpl(S3Credential credentials, String s3Region)
     {
         this.s3Region = s3Region;
@@ -265,7 +255,6 @@ public class S3ClientImpl implements S3Client
             if ( clientConfig != null )
             {
                 localClient = new AmazonS3Client(awsCredentialProvider, clientConfig.getAWSClientConfig());
-		localClient.setEndpoint(getS3Endpoint());
             }
             else
             {
