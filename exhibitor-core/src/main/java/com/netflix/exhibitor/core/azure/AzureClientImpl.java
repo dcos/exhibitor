@@ -16,7 +16,8 @@ public class AzureClientImpl implements AzureClient {
         this.storageConnectionString =
             "DefaultEndpointsProtocol=http" +
             ";AccountName=" + credentials.getAccountName() +
-            ";AccountKey=" + credentials.getAccountKey();
+            ";AccountKey=" + credentials.getAccountKey() +
+            ";EndpointSuffix=" + credentials.getEndpointSuffix();
     }
 
     @Override
