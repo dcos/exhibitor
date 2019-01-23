@@ -63,3 +63,5 @@ atlassian-ide-plugin.xml
 
 # NetBeans specific files/directories
 .nbattrs
+
+exhibitor-standalone/src/main/resources/buildscripts/standalone/gradle/build/
