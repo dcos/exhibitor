@@ -55,7 +55,7 @@ public class TestRemoteInstanceRequestClient
 
     // Truststore content:
     // 1 Certificate, CN: Root, SA Names: {localhost}, Signed by: self, Valid until: August/2027
-    URL invalidTruststoreUrl = ClassLoader.getSystemResource("com/netflix/exhibitor/core/automanage/test-invalidTruststore");
+    URL invalidTruststoreUrl = ClassLoader.getSystemResource("com/netflix/exhibitor/core/automanage/test-invalidtruststore");
     String invalidTruststorePath = invalidTruststoreUrl.getPath();
     String invalidTruststorePassword = "password";
 
