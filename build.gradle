@@ -7,6 +7,10 @@ ext.githubProjectName = rootProject.name // Change if github project name is not
 subprojects {
     apply plugin: 'nebula.netflixoss'
     apply plugin: 'java'
+    // Add the `maven` plugin to ensure that the `exhibitor-{core,standalone}`
+    // jars are installed into the local `.m2` Maven repository for discovery
+    // by the shadow jar build.
+    apply plugin: 'maven'
 
     group = "com.netflix.${githubProjectName}" // TEMPLATE: Set to organization of project
 
