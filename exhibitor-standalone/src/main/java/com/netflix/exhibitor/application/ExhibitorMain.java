@@ -57,10 +57,12 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.net.URL;
 import java.util.Arrays;
+import java.util.EnumSet;
 import java.util.Map;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import javax.servlet.DispatcherType;
 
 public class ExhibitorMain implements Closeable
 {
@@ -203,7 +205,7 @@ public class ExhibitorMain implements Closeable
         server.setThreadPool(threadPool);
 
         ServletContextHandler root = new ServletContextHandler(server, "/", ServletContextHandler.SESSIONS);
-        root.addFilter(ExhibitorServletFilter.class, "/", FilterMapping.ALL);
+        root.addFilter(ExhibitorServletFilter.class, "/",  EnumSet.of(DispatcherType.INCLUDE,DispatcherType.REQUEST));
         root.addServlet(new ServletHolder(container), "/*");
         if ( security != null )
         {
