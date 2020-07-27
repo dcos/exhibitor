@@ -32,8 +32,8 @@ dependencies {
     compile "com.sun.jersey:jersey-json:${jerseyVersion}"
     compile "com.sun.jersey:jersey-servlet:${jerseyVersion}"
 
-    compile "org.mortbay.jetty:jetty:${jettyVersion}"
-    compile "org.mortbay.jetty:jetty-sslengine:${jettyVersion}"
+    compile "org.eclipse.jetty:jetty-server:${jettyVersion}"
+    compile "org.eclipse.jetty:jetty-security:${jettyVersion}"
 
     testCompile "org.apache.curator:curator-test:${curatorVersion}"
     testCompile "org.mockito:mockito-core:${mockitoVersion}"

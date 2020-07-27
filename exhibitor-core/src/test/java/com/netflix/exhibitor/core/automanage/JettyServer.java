@@ -21,10 +21,10 @@ import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
 import javax.ws.rs.core.MediaType;
 
-import org.mortbay.jetty.Server;
-import org.mortbay.jetty.security.SslSelectChannelConnector;
-import org.mortbay.jetty.servlet.Context;
-import org.mortbay.jetty.servlet.ServletHolder;
+import org.eclipse.jetty.server.Server;
+import org.eclipse.jetty.security.SslSelectChannelConnector;
+import org.eclipse.jetty.servlet.ServletContextHandler;
+import org.eclipse.jetty.servlet.ServletHolder;
 
 import com.netflix.exhibitor.core.HttpsConfiguration;
 import com.sun.jersey.api.core.DefaultResourceConfig;
@@ -79,7 +79,7 @@ public class JettyServer
         DefaultResourceConfig config = new DefaultResourceConfig(JettyServer.RestService.class);
         ServletContainer container = new ServletContainer(config);
 
-        Context context = new Context(server, "/", Context.SESSIONS);
+        ServletContextHandler context = new ServletContextHandler(server, "/", Context.SESSIONS);
         context.addServlet(new ServletHolder(container), "/*");
     }
 

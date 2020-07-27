@@ -27,10 +27,10 @@ import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
-import org.mortbay.component.AbstractLifeCycle;
-import org.mortbay.component.LifeCycle;
-import org.mortbay.log.Log;
-import org.mortbay.thread.ThreadPool;
+import org.eclipse.jetty.util.component.AbstractLifeCycle;
+import org.eclipse.jetty.util.component.LifeCycle;
+import org.eclipse.jetty.util.log.Log;
+import org.eclipse.jetty.util.thread.ThreadPool;
 
 /* ------------------------------------------------------------ */
 /**

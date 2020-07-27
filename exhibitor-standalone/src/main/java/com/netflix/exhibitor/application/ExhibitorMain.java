@@ -39,17 +39,18 @@ import com.sun.jersey.api.client.filter.HTTPDigestAuthFilter;
 import com.sun.jersey.api.core.DefaultResourceConfig;
 import org.apache.curator.utils.CloseableUtils;
 import org.eclipse.jetty.util.thread.ExecutorThreadPool;
-import org.mortbay.jetty.Handler;
-import org.mortbay.jetty.Server;
-import org.mortbay.jetty.handler.ContextHandler;
-import org.mortbay.jetty.nio.SelectChannelConnector;
-import org.mortbay.jetty.security.HashUserRealm;
-import org.mortbay.jetty.security.SecurityHandler;
-import org.mortbay.jetty.security.SslSelectChannelConnector;
-import org.mortbay.jetty.servlet.Context;
-import org.mortbay.jetty.servlet.ServletHolder;
-import org.mortbay.jetty.webapp.WebAppContext;
-import org.mortbay.jetty.webapp.WebXmlConfiguration;
+import org.eclipse.jetty.server.Server;
+import org.eclipse.jetty.server.UserIdentity;
+import org.eclipse.jetty.server.handler.ContextHandler;
+import org.eclipse.jetty.server.nio.SelectChannelConnector;
+import org.eclipse.jetty.server.ssl.SslSelectChannelConnector;
+import org.eclipse.jetty.security.HashLoginService;
+import org.eclipse.jetty.security.SecurityHandler;
+import org.eclipse.jetty.servlet.FilterMapping;
+import org.eclipse.jetty.servlet.ServletContextHandler;
+import org.eclipse.jetty.servlet.ServletHolder;
+import org.eclipse.jetty.webapp.WebAppContext;
+import org.eclipse.jetty.webapp.WebXmlConfiguration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import java.io.Closeable;
@@ -117,7 +118,7 @@ public class ExhibitorMain implements Closeable
 
     public ExhibitorMain(BackupProvider backupProvider, ConfigProvider configProvider, ExhibitorArguments.Builder builder, SecurityHandler security, SecurityArguments securityArguments) throws Exception
     {
-        HashUserRealm realm = makeRealm(securityArguments);
+        HashLoginService loginService = makeLoginService(securityArguments);
         if ( securityArguments.getRemoteAuthSpec() != null )
         {
             addRemoteAuth(builder, securityArguments.getRemoteAuthSpec());
@@ -201,8 +202,8 @@ public class ExhibitorMain implements Closeable
         ExecutorThreadPool threadPool = new ExecutorThreadPool(corePoolSize, maxThreads, maxIdleTime, TimeUnit.SECONDS, queue);
         server.setThreadPool(threadPool);
 
-        Context root = new Context(server, "/", Context.SESSIONS);
-        root.addFilter(ExhibitorServletFilter.class, "/", Handler.ALL);
+        ServletContextHandler root = new ServletContextHandler(server, "/", ServletContextHandler.SESSIONS);
+        root.addFilter(ExhibitorServletFilter.class, "/", FilterMapping.ALL);
         root.addServlet(new ServletHolder(container), "/*");
         if ( security != null )
         {
@@ -210,7 +211,7 @@ public class ExhibitorMain implements Closeable
         }
         else if ( securityArguments.getSecurityFile() != null )
         {
-            addSecurityFile(realm, securityArguments.getSecurityFile(), root);
+            addSecurityFile(loginService, securityArguments.getSecurityFile(), root);
         }
     }
 
@@ -304,7 +305,7 @@ public class ExhibitorMain implements Closeable
         };
     }
 
-    private void addSecurityFile(HashUserRealm realm, String securityFile, Context root) throws Exception
+    private void addSecurityFile(HashLoginService loginService, String securityFile, ServletContextHandler root) throws Exception
     {
         // create a temp Jetty context to parse the security portion of the web.xml file
 
@@ -319,7 +320,8 @@ public class ExhibitorMain implements Closeable
         final WebXmlConfiguration webXmlConfiguration = new WebXmlConfiguration();
         WebAppContext context = new WebAppContext();
         context.setServer(server);
-        webXmlConfiguration.setWebAppContext(context);
+        webXmlConfiguration.configure(context);
+        WebAppContext parsedContext = new WebAppContext(url.toString(), "/");
         ContextHandler contextHandler = new ContextHandler("/")
         {
             @Override
@@ -327,17 +329,17 @@ public class ExhibitorMain implements Closeable
             {
                 super.startContext();
                 setServer(server);
-                webXmlConfiguration.configure(url.toString());
+                webXmlConfiguration.configure(parsedContext);
             }
         };
         contextHandler.start();
         try
         {
-            SecurityHandler securityHandler = webXmlConfiguration.getWebAppContext().getSecurityHandler();
+            SecurityHandler securityHandler = parsedContext.getSecurityHandler();
 
-            if ( realm != null )
+            if ( loginService != null )
             {
-                securityHandler.setUserRealm(realm);
+                securityHandler.setLoginService(loginService);
             }
 
             root.setSecurityHandler(securityHandler);
@@ -348,7 +350,7 @@ public class ExhibitorMain implements Closeable
         }
     }
 
-    private HashUserRealm makeRealm(SecurityArguments securityArguments) throws Exception
+    private HashLoginService makeLoginService(SecurityArguments securityArguments) throws Exception
     {
         if ( securityArguments.getRealmSpec() == null )
         {
@@ -361,14 +363,14 @@ public class ExhibitorMain implements Closeable
             throw new Exception("Bad realm spec: " + securityArguments.getRealmSpec());
         }
 
-        return new HashUserRealm(parts[0].trim(), parts[1].trim())
+        return new HashLoginService(parts[0].trim(), parts[1].trim())
         {
             @Override
-            public Object put(Object name, Object credentials)
+            public UserIdentity putUser(String name, Object credentials)
             {
                 users.put(String.valueOf(name), String.valueOf(credentials));
 
-                return super.put(name, credentials);
+                return super.putUser(name, credentials);
             }
         };
     }
