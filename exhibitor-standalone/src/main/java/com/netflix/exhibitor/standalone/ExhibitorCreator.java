@@ -73,9 +73,10 @@ import org.apache.zookeeper.data.ACL;
 import org.apache.zookeeper.data.Id;
 import org.eclipse.jetty.security.authentication.BasicAuthenticator;
 import org.eclipse.jetty.security.ConstraintMapping;
-import org.eclipse.jetty.security.HashLoginService;
 import org.eclipse.jetty.security.ConstraintSecurityHandler;
+import org.eclipse.jetty.security.HashLoginService;
 import org.eclipse.jetty.security.SecurityHandler;
+import org.eclipse.jetty.security.UserStore;
 import org.eclipse.jetty.util.security.Constraint;
 import org.eclipse.jetty.util.security.Credential;
 import org.slf4j.Logger;
@@ -690,8 +691,11 @@ public class ExhibitorCreator
     private SecurityHandler makeSecurityHandler(String realm, String consoleUser, String consolePassword, String curatorUser, String curatorPassword)
     {
         HashLoginService loginService = new HashLoginService(realm);
-        loginService.putUser(consoleUser, Credential.getCredential(consolePassword), new String[] {"console"});
-        loginService.putUser(curatorUser, Credential.getCredential(curatorPassword), new String[] {"curator"});
+        UserStore userStore = new UserStore();
+
+        userStore.addUser(consoleUser, Credential.getCredential(consolePassword), new String[] {"console"});
+        userStore.addUser(curatorUser, Credential.getCredential(curatorPassword), new String[] {"curator"});
+        loginService.setUserStore(userStore);
 
         Constraint console = new Constraint();
         console.setName("consoleauth");
