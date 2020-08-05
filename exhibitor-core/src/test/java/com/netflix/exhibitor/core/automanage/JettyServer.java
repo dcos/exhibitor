@@ -22,9 +22,10 @@ import javax.ws.rs.Produces;
 import javax.ws.rs.core.MediaType;
 
 import org.eclipse.jetty.server.Server;
-import org.eclipse.jetty.security.SslSelectChannelConnector;
+import org.eclipse.jetty.server.ServerConnector;
 import org.eclipse.jetty.servlet.ServletContextHandler;
 import org.eclipse.jetty.servlet.ServletHolder;
+import org.eclipse.jetty.util.ssl.SslContextFactory;
 
 import com.netflix.exhibitor.core.HttpsConfiguration;
 import com.sun.jersey.api.core.DefaultResourceConfig;
@@ -53,25 +54,24 @@ public class JettyServer
 
     public JettyServer(int port, HttpsConfiguration httpsConf)
     {
-        server = new Server();
+        SslContextFactory sslContextFactory = new SslContextFactory.Server();
 
-        SslSelectChannelConnector connector = new SslSelectChannelConnector();
-        connector.setPort(port);
-        connector.setKeystore(httpsConf.getServerKeystorePath());
-        connector.setKeyPassword(httpsConf.getServerKeystorePassword());
+        sslContextFactory.setKeyStorePath(httpsConf.getServerKeystorePath());
+        sslContextFactory.setKeyStorePassword(httpsConf.getServerKeystorePassword());
 
         if ( httpsConf.isVerifyPeerCert() )
         {
-            connector.setTruststore(httpsConf.getTruststorePath());
-            connector.setTrustPassword(httpsConf.getTruststorePassword());
-            connector.setNeedClientAuth(true);
+            sslContextFactory.setTrustStorePath(httpsConf.getTruststorePath());
+            sslContextFactory.setTrustStorePassword(httpsConf.getTruststorePassword());
+            sslContextFactory.setNeedClientAuth(true);
         }
 
-        connector.setWantClientAuth(httpsConf.isRequireClientCert());
+        sslContextFactory.setWantClientAuth(httpsConf.isRequireClientCert());
 
-        connector.setAcceptors(8);
-        connector.setMaxIdleTime(5000);
-        connector.setAcceptQueueSize(32);
+        server = new Server();
+        ServerConnector connector = new ServerConnector(server, sslContextFactory);
+        connector.setIdleTimeout(5000);
+        connector.setPort(port);
 
         server.addConnector(connector);
         server.setStopAtShutdown(true);
@@ -79,7 +79,7 @@ public class JettyServer
         DefaultResourceConfig config = new DefaultResourceConfig(JettyServer.RestService.class);
         ServletContainer container = new ServletContainer(config);
 
-        ServletContextHandler context = new ServletContextHandler(server, "/", Context.SESSIONS);
+        ServletContextHandler context = new ServletContextHandler(server, "/",  ServletContextHandler.SESSIONS);
         context.addServlet(new ServletHolder(container), "/*");
     }
 
