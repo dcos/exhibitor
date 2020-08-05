@@ -16,6 +16,11 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
+      # NOTE(jkoelker) The nebula plugin requires a git history to walk.
+      #                This checks out the entire tree instead of just the
+      #                HEAD.
+      with:
+        fetch-depth: 0
     - name: Set up JDK 1.8
       uses: actions/setup-java@v1
       with:
