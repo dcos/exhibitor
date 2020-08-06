@@ -11,8 +11,12 @@ dependencies {
     compile 'com.sun.jersey:jersey-server:' + jerseyVersion
     compile 'com.sun.jersey:jersey-servlet:' + jerseyVersion
     compile 'com.sun.jersey:jersey-json:' + jerseyVersion
-    compile 'org.mortbay.jetty:jetty:' + jettyVersion
+    compile 'org.eclipse.jetty:jetty-security:' + jettyVersion
+    compile 'org.eclipse.jetty:jetty-server:' + jettyVersion
+    compile 'org.eclipse.jetty:jetty-servlet:' + jettyVersion
+    compile 'org.eclipse.jetty:jetty-webapp:' + jettyVersion
+    compile 'org.eclipse.jetty:jetty-util:' + jettyVersion
     compile 'commons-cli:commons-cli:' + commonsCliVersion
 
-    compile 'javax.servlet:servlet-api:' + servletVersion
+    compile 'javax.servlet:javax.servlet-api:' + servletVersion
 }

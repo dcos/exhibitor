@@ -39,27 +39,37 @@ import com.sun.jersey.api.client.filter.HTTPDigestAuthFilter;
 import com.sun.jersey.api.core.DefaultResourceConfig;
 import org.apache.curator.utils.CloseableUtils;
 import org.eclipse.jetty.util.thread.ExecutorThreadPool;
-import org.mortbay.jetty.Handler;
-import org.mortbay.jetty.Server;
-import org.mortbay.jetty.handler.ContextHandler;
-import org.mortbay.jetty.nio.SelectChannelConnector;
-import org.mortbay.jetty.security.HashUserRealm;
-import org.mortbay.jetty.security.SecurityHandler;
-import org.mortbay.jetty.security.SslSelectChannelConnector;
-import org.mortbay.jetty.servlet.Context;
-import org.mortbay.jetty.servlet.ServletHolder;
-import org.mortbay.jetty.webapp.WebAppContext;
-import org.mortbay.jetty.webapp.WebXmlConfiguration;
+import org.eclipse.jetty.server.AbstractConnectionFactory;
+import org.eclipse.jetty.server.ConnectionFactory;
+import org.eclipse.jetty.server.Server;
+import org.eclipse.jetty.server.UserIdentity;
+import org.eclipse.jetty.server.HttpConnectionFactory;
+import org.eclipse.jetty.server.ServerConnector;
+import org.eclipse.jetty.server.handler.ContextHandler;
+import org.eclipse.jetty.security.HashLoginService;
+import org.eclipse.jetty.security.PropertyUserStore;
+import org.eclipse.jetty.security.SecurityHandler;
+import org.eclipse.jetty.servlet.FilterMapping;
+import org.eclipse.jetty.servlet.ServletContextHandler;
+import org.eclipse.jetty.servlet.ServletHolder;
+import org.eclipse.jetty.webapp.WebAppContext;
+import org.eclipse.jetty.webapp.WebXmlConfiguration;
+import org.eclipse.jetty.util.ProcessorUtils;
+import org.eclipse.jetty.util.resource.Resource;
+import org.eclipse.jetty.util.ssl.SslContextFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import java.io.Closeable;
 import java.io.IOException;
 import java.net.URL;
 import java.util.Arrays;
+import java.util.EnumSet;
 import java.util.Map;
+import java.util.Properties;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import javax.servlet.DispatcherType;
 
 public class ExhibitorMain implements Closeable
 {
@@ -117,7 +127,7 @@ public class ExhibitorMain implements Closeable
 
     public ExhibitorMain(BackupProvider backupProvider, ConfigProvider configProvider, ExhibitorArguments.Builder builder, SecurityHandler security, SecurityArguments securityArguments) throws Exception
     {
-        HashUserRealm realm = makeRealm(securityArguments);
+        HashLoginService loginService = makeLoginService(securityArguments);
         if ( securityArguments.getRemoteAuthSpec() != null )
         {
             addRemoteAuth(builder, securityArguments.getRemoteAuthSpec());
@@ -129,45 +139,6 @@ public class ExhibitorMain implements Closeable
 
         DefaultResourceConfig   application = JerseySupport.newApplicationConfig(new UIContext(exhibitor));
         ServletContainer        container = new ServletContainer(application);
-
-        server = new Server();
-        HttpsConfiguration httpsConf = exhibitor.getHttpsConfiguration();
-
-        SelectChannelConnector connector = null;
-        if ( httpsConf.getServerKeystorePath() != null )
-        {
-            connector = new SslSelectChannelConnector();
-            SslSelectChannelConnector sslConnector = (SslSelectChannelConnector) connector;
-            sslConnector.setPort(exhibitor.getRestPort());
-            sslConnector.setKeystore(httpsConf.getServerKeystorePath());
-            sslConnector.setKeyPassword(httpsConf.getServerKeystorePassword());
-
-            if ( httpsConf.isVerifyPeerCert() )
-            {
-                sslConnector.setTruststore(httpsConf.getTruststorePath());
-                sslConnector.setTrustPassword(httpsConf.getTruststorePassword());
-                sslConnector.setNeedClientAuth(true);
-            }
-
-            sslConnector.setWantClientAuth(httpsConf.isRequireClientCert());
-        }
-        else
-        {
-            // By default the jetty.bio.SocketConnector is used. The
-            // SocketConnector performs blocking I/O and so suffers from
-            // spawning a new thread per connection. To improve
-            // performance and limit the number of threads we switch to
-            // the jetty.nio.SelectChannelConnector. This is a
-            // non-blocking I/O connector.
-            // See https://dcosjira.atlassian.net/browse/DCOS-558
-            connector = new SelectChannelConnector();
-            connector.setPort(exhibitor.getRestPort());
-        }
-
-        connector.setAcceptors(8);
-        connector.setMaxIdleTime(5000);
-        connector.setAcceptQueueSize(32);
-        server.addConnector(connector);
 
         // The server's threadPool implementation defaults to the
         // QueuedThreadPool.  The QueuedThreadPool has no limit on the
@@ -193,29 +164,75 @@ public class ExhibitorMain implements Closeable
         // See https://dcosjira.atlassian.net/browse/DCOS-558
         final int maxQueueSize = 4096;
         LinkedBlockingQueue<Runnable> queue = new LinkedBlockingQueue<Runnable>(maxQueueSize);
-        // corePoolSize needs to be much higher than the number of Acceptors
-        // See https://jira.mesosphere.com/browse/DCOS-14045
-        final int corePoolSize = 20;
-        final int maxThreads = 100;
-        final int maxIdleTime = 5;
-        ExecutorThreadPool threadPool = new ExecutorThreadPool(corePoolSize, maxThreads, maxIdleTime, TimeUnit.SECONDS, queue);
-        server.setThreadPool(threadPool);
 
-        Context root = new Context(server, "/", Context.SESSIONS);
-        root.addFilter(ExhibitorServletFilter.class, "/", Handler.ALL);
+        // minThreads needs to be much higher than the number of Acceptors
+        // See https://jira.mesosphere.com/browse/DCOS-14045
+        // Calculate acceptors based on Processors as is done by default.
+        int cores = ProcessorUtils.availableProcessors();
+        int acceptors = Math.max(1, Math.min(4, cores / 8));
+        final int minThreads = acceptors * 5;
+        final int maxThreads = 100;
+
+        ExecutorThreadPool threadPool = new ExecutorThreadPool(maxThreads, minThreads, queue);
+        threadPool.setIdleTimeout(5000);
+        server = new Server(threadPool);
+
+        HttpsConfiguration httpsConf = exhibitor.getHttpsConfiguration();
+
+        ConnectionFactory[] factory = {new HttpConnectionFactory()};
+
+        if ( httpsConf.getServerKeystorePath() != null )
+        {
+            SslContextFactory sslContextFactory = new SslContextFactory.Server();
+            sslContextFactory.setKeyStorePath(httpsConf.getServerKeystorePath());
+            sslContextFactory.setKeyStorePassword(httpsConf.getServerKeystorePassword());
+
+            if ( httpsConf.isVerifyPeerCert() )
+            {
+                sslContextFactory.setTrustStorePath(httpsConf.getTruststorePath());
+                sslContextFactory.setTrustStorePassword(httpsConf.getTruststorePassword());
+                sslContextFactory.setNeedClientAuth(true);
+            }
+
+            sslContextFactory.setWantClientAuth(httpsConf.isRequireClientCert());
+
+            factory = AbstractConnectionFactory.getFactories(sslContextFactory, factory);
+        }
+
+        ServerConnector connector = new ServerConnector(server, factory);
+        connector.setPort(exhibitor.getRestPort());
+        connector.setIdleTimeout(5000);
+        server.addConnector(connector);
+        if (loginService != null)
+        {
+            server.addBean(loginService);
+        }
+
+        WebAppContext root = new WebAppContext();
+        root.setContextPath("/");
+
+        // NOTE(jkoelker) A war or path is required. Set to a non-existant
+        //                path.
+        root.setResourceBase("src/main/webapp/");
+
+        root.addFilter(ExhibitorServletFilter.class, "/",  EnumSet.of(DispatcherType.INCLUDE,DispatcherType.REQUEST));
         root.addServlet(new ServletHolder(container), "/*");
+
         if ( security != null )
         {
             root.setSecurityHandler(security);
         }
         else if ( securityArguments.getSecurityFile() != null )
         {
-            addSecurityFile(realm, securityArguments.getSecurityFile(), root);
+            root.addOverrideDescriptor(securityArguments.getSecurityFile());
         }
+
+        server.setHandler(root);
     }
 
     private void addRemoteAuth(ExhibitorArguments.Builder builder, String remoteAuthSpec)
     {
+
         String[] parts = remoteAuthSpec.split(":");
         Preconditions.checkArgument(parts.length == 2, "Badly formed remote client authorization: " + remoteAuthSpec);
 
@@ -304,51 +321,7 @@ public class ExhibitorMain implements Closeable
         };
     }
 
-    private void addSecurityFile(HashUserRealm realm, String securityFile, Context root) throws Exception
-    {
-        // create a temp Jetty context to parse the security portion of the web.xml file
-
-        /*
-            TODO
-
-            This code assumes far too much internal knowledge of Jetty. I don't know
-            of simple way to parse the web.xml though and don't want to write it myself.
-         */
-
-        final URL url = new URL("file", null, securityFile);
-        final WebXmlConfiguration webXmlConfiguration = new WebXmlConfiguration();
-        WebAppContext context = new WebAppContext();
-        context.setServer(server);
-        webXmlConfiguration.setWebAppContext(context);
-        ContextHandler contextHandler = new ContextHandler("/")
-        {
-            @Override
-            protected void startContext() throws Exception
-            {
-                super.startContext();
-                setServer(server);
-                webXmlConfiguration.configure(url.toString());
-            }
-        };
-        contextHandler.start();
-        try
-        {
-            SecurityHandler securityHandler = webXmlConfiguration.getWebAppContext().getSecurityHandler();
-
-            if ( realm != null )
-            {
-                securityHandler.setUserRealm(realm);
-            }
-
-            root.setSecurityHandler(securityHandler);
-        }
-        finally
-        {
-            contextHandler.stop();
-        }
-    }
-
-    private HashUserRealm makeRealm(SecurityArguments securityArguments) throws Exception
+    private HashLoginService makeLoginService(SecurityArguments securityArguments) throws Exception
     {
         if ( securityArguments.getRealmSpec() == null )
         {
@@ -361,15 +334,33 @@ public class ExhibitorMain implements Closeable
             throw new Exception("Bad realm spec: " + securityArguments.getRealmSpec());
         }
 
-        return new HashUserRealm(parts[0].trim(), parts[1].trim())
-        {
-            @Override
-            public Object put(Object name, Object credentials)
-            {
-                users.put(String.valueOf(name), String.valueOf(credentials));
+        PropertyUserStore propertyUserStore = new PropertyUserStore();
+        propertyUserStore.setConfig(parts[1].trim());
 
-                return super.put(name, credentials);
+        Resource config = propertyUserStore.getConfigResource();
+        Properties properties = new Properties();
+        properties.load(config.getInputStream());
+
+        for (Map.Entry<Object, Object> entry : properties.entrySet())
+        {
+            String username = ((String)entry.getKey()).trim();
+            String credentials = ((String)entry.getValue()).trim();
+            String roles = null;
+            int c = credentials.indexOf(',');
+            if (c >= 0)
+            {
+                roles = credentials.substring(c + 1).trim();
+                credentials = credentials.substring(0, c).trim();
             }
-        };
+
+            if (username.length() > 0)
+            {
+                users.put(username, credentials);
+            }
+        }
+
+        HashLoginService loginService = new HashLoginService(parts[0].trim());
+        loginService.setUserStore(propertyUserStore);
+        return loginService;
     }
 }

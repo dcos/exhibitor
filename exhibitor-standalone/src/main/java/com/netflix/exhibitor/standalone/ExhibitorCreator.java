@@ -71,12 +71,14 @@ import org.apache.zookeeper.ZooDefs;
 import org.apache.zookeeper.common.PathUtils;
 import org.apache.zookeeper.data.ACL;
 import org.apache.zookeeper.data.Id;
-import org.mortbay.jetty.security.BasicAuthenticator;
-import org.mortbay.jetty.security.Constraint;
-import org.mortbay.jetty.security.ConstraintMapping;
-import org.mortbay.jetty.security.Credential;
-import org.mortbay.jetty.security.HashUserRealm;
-import org.mortbay.jetty.security.SecurityHandler;
+import org.eclipse.jetty.security.authentication.BasicAuthenticator;
+import org.eclipse.jetty.security.ConstraintMapping;
+import org.eclipse.jetty.security.ConstraintSecurityHandler;
+import org.eclipse.jetty.security.HashLoginService;
+import org.eclipse.jetty.security.SecurityHandler;
+import org.eclipse.jetty.security.UserStore;
+import org.eclipse.jetty.util.security.Constraint;
+import org.eclipse.jetty.util.security.Credential;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import java.io.BufferedInputStream;
@@ -688,11 +690,12 @@ public class ExhibitorCreator
 
     private SecurityHandler makeSecurityHandler(String realm, String consoleUser, String consolePassword, String curatorUser, String curatorPassword)
     {
-        HashUserRealm userRealm = new HashUserRealm(realm);
-        userRealm.put(consoleUser, Credential.getCredential(consolePassword));
-        userRealm.addUserToRole(consoleUser,"console");
-        userRealm.put(curatorUser, Credential.getCredential(curatorPassword));
-        userRealm.addUserToRole(curatorUser, "curator");
+        HashLoginService loginService = new HashLoginService(realm);
+        UserStore userStore = new UserStore();
+
+        userStore.addUser(consoleUser, Credential.getCredential(consolePassword), new String[] {"console"});
+        userStore.addUser(curatorUser, Credential.getCredential(curatorPassword), new String[] {"curator"});
+        loginService.setUserStore(userStore);
 
         Constraint console = new Constraint();
         console.setName("consoleauth");
@@ -712,8 +715,8 @@ public class ExhibitorCreator
         curatorMapping.setConstraint(curator);
         curatorMapping.setPathSpec("/exhibitor/v1/cluster/list");
 
-        SecurityHandler handler = new SecurityHandler();
-        handler.setUserRealm(userRealm);
+        ConstraintSecurityHandler handler = new ConstraintSecurityHandler();
+        handler.setLoginService(loginService);
         handler.setConstraintMappings(new ConstraintMapping[]{consoleMapping,curatorMapping});
         handler.setAuthenticator(new BasicAuthenticator());
 
